@@ -1,0 +1,287 @@
+{% extends "flights/base.html" %}
+
+{% block title %}NASIM | Search Flights{% endblock %}
+
+{% block content %}
+<main class="page">
+  <div class="topbar">
+    <div class="brand">NASIM Airways</div>
+    <div class="chip">Guest-first booking experience</div>
+  </div>
+
+  <section class="hero">
+    <h1>Plan your trip with confidence.</h1>
+    <p>Simple search, clear choices, and support if you need help at any step.</p>
+  </section>
+
+  <section class="panel steps">
+    <div class="step active">1. Search</div>
+    <div class="step">2. Choose flight</div>
+    <div class="step">3. Confirm details</div>
+  </section>
+
+  <section class="panel">
+    <form method="get" action="/">
+      <div>
+        <label for="from">Departing From</label>
+        <select id="from" name="from">
+          <option value="">Any airport</option>
+          {% for airport in airports %}
+          <option value="{{ airport.code }}" {% if airport.code == from_code %}selected{% endif %}>
+            {{ airport.code }} | {{ airport.city }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="to">Arriving To</label>
+        <select id="to" name="to">
+          <option value="">Any airport</option>
+          {% for airport in airports %}
+          <option value="{{ airport.code }}" {% if airport.code == to_code %}selected{% endif %}>
+            {{ airport.code }} | {{ airport.city }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <button type="submit">Find flights</button>
+      </div>
+    </form>
+  </section>
+
+  {% if ai_recommended_trip %}
+  <section class="panel">
+    <strong>Recommended for comfort and shortest duration:</strong>
+    <a href="/trip/{{ ai_recommended_trip.id }}/">{{ ai_recommended_trip.flight.flight_code }}</a>
+    {{ ai_recommended_trip.flight.route.from_airport.code }} to {{ ai_recommended_trip.flight.route.to_airport.code }}
+    <span class="ai-ribbon">Smart pick</span>
+  </section>
+  {% endif %}
+
+  <section class="panel">
+    <h2>Available flights</h2>
+    {% for trip in trips %}
+    <article class="trip">
+      <div>
+        <a href="/trip/{{ trip.id }}/"><strong>{{ trip.flight.flight_code }}</strong></a>
+        {{ trip.flight.route.from_airport.code }} -> {{ trip.flight.route.to_airport.code }}
+        <div>Departure {{ trip.depart_at }} | Arrival {{ trip.arrive_at }}</div>
+      </div>
+      <a class="track-link" href="/trip/{{ trip.id }}/">View details</a>
+    </article>
+    {% empty %}
+    <p>No flights available for this selection yet. Try another route or date window.</p>
+    {% endfor %}
+  </section>
+</main>
+
+<style>
+  :root {
+    --claret-900: #22060f;
+    --claret-800: #3f0d1f;
+    --claret-700: #5a1730;
+    --sand-100: #f6f1e8;
+    --gold-400: #cf9f4f;
+    --ink: #231a13;
+    --card: rgba(255, 250, 242, 0.94);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    color: var(--ink);
+    font-family: "Optima", "Palatino Linotype", serif;
+    background:
+      radial-gradient(1000px 600px at 10% -5%, rgba(207, 159, 79, 0.22), transparent 60%),
+      radial-gradient(900px 500px at 90% 0%, rgba(90, 23, 48, 0.22), transparent 55%),
+      linear-gradient(150deg, #1b050d 0%, #400f21 42%, #5d1832 100%);
+    min-height: 100vh;
+  }
+
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.2rem 1rem 6rem;
+  }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--sand-100);
+    margin-bottom: 1rem;
+    gap: 0.8rem;
+  }
+
+  .brand {
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .chip {
+    border: 1px solid rgba(232, 220, 199, 0.4);
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .hero {
+    border-radius: 26px;
+    background:
+      linear-gradient(130deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)),
+      linear-gradient(120deg, #2a0813 0%, #631831 62%, #7f2a49 100%);
+    color: var(--sand-100);
+    padding: 1.7rem;
+    box-shadow: 0 18px 45px rgba(20, 5, 10, 0.45);
+    transform: translateY(8px);
+    opacity: 0;
+    animation: rise 0.6s ease forwards;
+  }
+
+  .hero h1 {
+    margin: 0;
+    font-size: clamp(1.9rem, 3.5vw, 2.8rem);
+    line-height: 1.05;
+  }
+
+  .hero p {
+    margin: 0.7rem 0 0;
+    color: #f2e6d5;
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.55rem;
+  }
+
+  .step {
+    border: 1px dashed rgba(90, 23, 48, 0.3);
+    border-radius: 12px;
+    padding: 0.55rem;
+    text-align: center;
+    color: #634d3b;
+    background: #fff9f0;
+    font-weight: 600;
+  }
+
+  .step.active {
+    background: #f8ead3;
+    border-style: solid;
+    color: #784c18;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid rgba(182, 134, 61, 0.2);
+    border-radius: 20px;
+    padding: 1rem;
+    margin-top: 1rem;
+    box-shadow: 0 10px 26px rgba(17, 5, 9, 0.2);
+  }
+
+  form {
+    display: grid;
+    gap: 0.9rem;
+    grid-template-columns: 1fr 1fr auto;
+    align-items: end;
+  }
+
+  label {
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+    display: block;
+  }
+
+  select,
+  button {
+    width: 100%;
+    border-radius: 12px;
+    padding: 0.7rem 0.8rem;
+  }
+
+  select {
+    border: 1px solid #d3c2a8;
+    background: #fffaf2;
+  }
+
+  button {
+    border: 1px solid #8a5f28;
+    background: linear-gradient(180deg, #d3a45d, #ad7b38);
+    color: #fffaf0;
+    cursor: pointer;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .trip {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0.8rem;
+    margin-top: 0.8rem;
+    padding: 0.85rem;
+    border-radius: 12px;
+    border: 1px solid rgba(90, 23, 48, 0.18);
+    background: #fffdf8;
+  }
+
+  .trip strong {
+    color: var(--claret-700);
+  }
+
+  .track-link {
+    text-decoration: none;
+    color: #fff7ec;
+    background: linear-gradient(180deg, #531127, #3b0d1b);
+    border-radius: 10px;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .ai-ribbon {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    background: #f7ead4;
+    border: 1px solid #d9bc88;
+    color: #805314;
+    font-size: 0.75rem;
+    margin-left: 0.4rem;
+  }
+
+  a {
+    color: var(--claret-700);
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 760px) {
+    form,
+    .steps {
+      grid-template-columns: 1fr;
+    }
+
+    .trip {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+{% if admin_metrics %}
+<style>
+  .admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .admin-card {
+    background: #fffaf3;
+    border: 1px solid #e8d7be;
+    border-radius: 10px;
+    padding: 12px;
+  }
+
+  .admin-label {
+    font-size: 12px;
+    color: #6b5946;
+    text-transform: uppercase;
+  }
+
+  .admin-value {
+    font-size: 26px;
+    font-weight: 700;
+    color: #4f0f24;
+  }
+
+  .admin-section {
+    background: #fffaf3;
+    border: 1px solid #e8d7be;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 18px;
+  }
+
+  .quick-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .quick-link {
+    background: #f9efdf;
+    border: 1px solid #e2ceb0;
+    border-radius: 8px;
+    padding: 9px 10px;
+    text-decoration: none;
+    font-weight: 600;
+    color: #4f0f24;
+  }
+</style>
+
+<div class="admin-grid">
+  <div class="admin-card">
+    <div class="admin-label">Airports</div>
+    <div class="admin-value">{{ admin_metrics.airports }}</div>
+  </div>
+  <div class="admin-card">
+    <div class="admin-label">Routes</div>
+    <div class="admin-value">{{ admin_metrics.routes }}</div>
+  </div>
+  <div class="admin-card">
+    <div class="admin-label">Flights</div>
+    <div class="admin-value">{{ admin_metrics.flights }}</div>
+  </div>
+  <div class="admin-card">
+    <div class="admin-label">Upcoming Trips</div>
+    <div class="admin-value">{{ admin_metrics.upcoming_trips }}</div>
+  </div>
+  <div class="admin-card">
+    <div class="admin-label">Open Tickets</div>
+    <div class="admin-value">{{ admin_metrics.open_tickets }}</div>
+  </div>
+</div>
+
+<div class="admin-section">
+  <h2 style="margin:0 0 8px 0;">Quick actions</h2>
+  <div class="quick-links">
+    <a class="quick-link" href="/admin/flights/trip/">Manage trips and schedules</a>
+    <a class="quick-link" href="/admin/flights/supportticket/">Reply to support tickets</a>
+    <a class="quick-link" href="/admin/flights/flight/">Manage flights and routes</a>
+    <a class="quick-link" href="/">Open customer search page</a>
+  </div>
+</div>
+
+<div class="admin-section">
+  <h2 style="margin:0 0 8px 0;">Next departures</h2>
+  {% if admin_metrics.recent_departures %}
+  <ul style="margin:0;padding-left:18px;">
+    {% for trip in admin_metrics.recent_departures %}
+    <li style="margin-bottom:4px;">
+      {{ trip.flight.flight_code }}: {{ trip.flight.route.from_airport.code }} to {{ trip.flight.route.to_airport.code }} at {{ trip.depart_at }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p style="margin:0;">No upcoming trips scheduled.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+{{ block.super }}
+{% endblock %}

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Trip Details</title>
+  </head>
+  <body>
+    <h1>Trip Details</h1>
+
+    <a href="/trip/{{ t.id }}/"><strong>{{ t.flight.flight_code }}</strong></a>
+    <p><strong>Route:</strong> {{ trip.flight.route }}</p>
+    <p><strong>Depart:</strong> {{ trip.depart_at }}</p>
+    <p><strong>Arrive:</strong> {{ trip.arrive_at }}</p>
+
+    <a href="/">Back to search</a>
+  </body>
+</html>

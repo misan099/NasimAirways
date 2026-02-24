@@ -1,0 +1,137 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  :root {
+    --admin-primary: #4f0f24;
+    --admin-primary-dark: #2e0814;
+    --admin-accent: #ad7b38;
+    --admin-surface: #fffaf3;
+    --admin-surface-2: #f7ecdb;
+    --admin-ink: #2b1f14;
+    --admin-border: #e8d7be;
+  }
+
+  body {
+    color: var(--admin-ink);
+    background:
+      radial-gradient(900px 420px at 0% -15%, rgba(207, 159, 79, 0.16), transparent 55%),
+      radial-gradient(880px 420px at 100% 0%, rgba(79, 15, 36, 0.14), transparent 55%),
+      #f3eee5;
+  }
+
+  #header {
+    background: linear-gradient(130deg, var(--admin-primary-dark), #7a2846);
+    color: #fff;
+  }
+
+  #branding h1,
+  #branding h1 a:link,
+  #branding h1 a:visited {
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  #user-tools,
+  #user-tools a {
+    color: #f9ecd7;
+  }
+
+  div.breadcrumbs {
+    background: linear-gradient(90deg, #5d1832, #7a2846);
+    color: #f9ecd7;
+  }
+
+  div.breadcrumbs a {
+    color: #fff9ee;
+  }
+
+  .module h2,
+  .module caption,
+  .inline-group h2 {
+    background: linear-gradient(130deg, var(--admin-primary), #7a2846);
+    color: #fff9ee;
+  }
+
+  #content-main .module,
+  .dashboard .module,
+  .submit-row,
+  .inline-related,
+  .aligned fieldset {
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--admin-surface);
+    box-shadow: 0 8px 18px rgba(24, 5, 12, 0.08);
+  }
+
+  .results,
+  #changelist-form .actions,
+  #changelist-filter {
+    border-radius: 10px;
+  }
+
+  #changelist-filter {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+  }
+
+  .button,
+  input[type=submit],
+  input[type=button],
+  .submit-row input,
+  a.button {
+    background: linear-gradient(180deg, #d3a45d, var(--admin-accent));
+    border: 1px solid #8a5f28;
+    color: #fff9ee;
+  }
+
+  .button:hover,
+  input[type=submit]:hover,
+  input[type=button]:hover,
+  .submit-row input:hover,
+  a.button:hover {
+    background: linear-gradient(180deg, #c6954f, #9f6f31);
+  }
+
+  a:link,
+  a:visited {
+    color: #5a1730;
+  }
+
+  a:hover {
+    color: #3f0d1f;
+  }
+
+  table thead th {
+    background: #f6ead7;
+    border-bottom: 1px solid var(--admin-border);
+  }
+
+  tr:nth-child(even) {
+    background: #fff7ea;
+  }
+
+  input, textarea, select {
+    border-radius: 8px;
+    border: 1px solid #d8c6a9;
+  }
+
+  body.login {
+    background:
+      radial-gradient(circle at 10% -20%, rgba(207, 159, 79, 0.35) 0%, transparent 45%),
+      radial-gradient(circle at 100% 0%, rgba(79, 15, 36, 0.2) 0%, transparent 42%),
+      #f3eee5;
+  }
+
+  body.login #header {
+    border-radius: 14px 14px 0 0;
+  }
+
+  body.login .form-row {
+    padding: 10px 14px;
+  }
+</style>
+{% endblock %}

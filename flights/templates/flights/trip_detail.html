@@ -1,0 +1,415 @@
+{% extends "flights/base.html" %}
+
+{% block title %}NASIM | Flight {{ trip.flight.flight_code }}{% endblock %}
+
+{% block head_extras %}
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+{% endblock %}
+
+{% block content %}
+<main class="wrap">
+  <section class="masthead">
+    <h1>{{ trip.flight.flight_code }} Journey Center</h1>
+    <p>{{ trip.flight.route.from_airport.code }} -> {{ trip.flight.route.to_airport.code }}</p>
+  </section>
+
+  <section class="flow card">
+    <div class="flow-step done">Search</div>
+    <div class="flow-step active">Track and support</div>
+    <div class="flow-step">Arrive</div>
+  </section>
+
+  <section class="grid">
+    <article class="card">
+      <h2>Your flight timeline</h2>
+      <p><strong>Route:</strong> {{ trip.flight.route }}</p>
+      <p><strong>Departure:</strong> {{ trip.depart_at }}</p>
+      <p><strong>Arrival:</strong> {{ trip.arrive_at }}</p>
+
+      <h3>Live progress</h3>
+      <div class="progress"><span id="progressFill"></span></div>
+      <p><span id="progressValue">0</span>% complete</p>
+
+      <h3>Live map</h3>
+      <div id="liveMap"></div>
+      <p>
+        <strong>Position:</strong>
+        <span id="coordValue">Loading...</span>
+      </p>
+      <p>
+        <strong>Altitude / Speed:</strong>
+        <span id="flightMetricValue">--</span>
+      </p>
+    </article>
+
+    <article class="card">
+      <h2>Operations insight</h2>
+      <div class="stats">
+        <div class="stat">
+          <div class="label">Status</div>
+          <div class="value" id="statusValue">{{ ai.status }}</div>
+        </div>
+        <div class="stat">
+          <div class="label">Duration</div>
+          <div class="value">{{ ai.duration_minutes }} min</div>
+        </div>
+        <div class="stat">
+          <div class="label">Risk score</div>
+          <div class="value">{{ ai.risk_score }}</div>
+        </div>
+        <div class="stat">
+          <div class="label">Risk level</div>
+          <div class="value">{{ ai.risk_level }}</div>
+        </div>
+      </div>
+      <p><strong>Recommendation:</strong> {{ ai.recommendation }}</p>
+      <p><strong>Travel assistant:</strong> <span id="aiMessage">Loading...</span></p>
+    </article>
+  </section>
+
+  <div class="cta">
+    <a class="back" href="/">Back to flight search</a>
+  </div>
+</main>
+
+<style>
+  :root {
+    --claret-950: #18040b;
+    --claret-900: #2a0813;
+    --claret-800: #4d1125;
+    --gold-400: #c7954a;
+    --sand-100: #f5efe4;
+    --panel: rgba(255, 250, 242, 0.95);
+    --ink: #2c2016;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    color: var(--ink);
+    font-family: "Optima", "Palatino Linotype", serif;
+    background:
+      radial-gradient(1100px 540px at 95% 0%, rgba(199, 149, 74, 0.17), transparent 58%),
+      radial-gradient(800px 500px at 0% 0%, rgba(77, 17, 37, 0.18), transparent 55%),
+      linear-gradient(145deg, #17030a, #3c0e1f 45%, #5c1931);
+    min-height: 100vh;
+  }
+
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.2rem 1rem 6rem;
+  }
+
+  .masthead {
+    border-radius: 24px;
+    background:
+      linear-gradient(120deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03)),
+      linear-gradient(130deg, #280910 0%, #5a162d 56%, #7a2846 100%);
+    color: var(--sand-100);
+    padding: 1.45rem;
+    box-shadow: 0 16px 42px rgba(16, 3, 8, 0.45);
+  }
+
+  .masthead h1 {
+    margin: 0;
+    font-size: clamp(1.8rem, 3.3vw, 2.7rem);
+  }
+
+  .masthead p {
+    margin: 0.45rem 0 0;
+    color: #f4e8d7;
+  }
+
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+    margin-top: 1rem;
+  }
+
+  .flow-step {
+    border-radius: 12px;
+    border: 1px dashed rgba(77, 17, 37, 0.3);
+    padding: 0.55rem;
+    text-align: center;
+    font-weight: 600;
+    background: #fff9f0;
+  }
+
+  .flow-step.active {
+    border-style: solid;
+    background: #f8ead3;
+  }
+
+  .flow-step.done {
+    border-style: solid;
+    background: #f4e7d1;
+    color: #5a492f;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .card {
+    background: var(--panel);
+    border-radius: 18px;
+    border: 1px solid rgba(172, 120, 54, 0.25);
+    padding: 1rem;
+    box-shadow: 0 12px 24px rgba(20, 6, 10, 0.22);
+    animation: reveal 0.6s ease both;
+  }
+
+  #liveMap {
+    width: 100%;
+    height: 320px;
+    border-radius: 14px;
+    border: 1px solid rgba(77, 17, 37, 0.2);
+  }
+
+  .plane-icon {
+    font-size: 22px;
+    text-shadow: 0 4px 9px rgba(0, 0, 0, 0.35);
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    margin-top: 0.6rem;
+  }
+
+  .stat {
+    border-radius: 12px;
+    padding: 0.6rem;
+    background: #fffcf7;
+    border: 1px solid rgba(77, 17, 37, 0.17);
+  }
+
+  .label {
+    font-size: 0.8rem;
+    color: #6d5847;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .value {
+    margin-top: 0.2rem;
+    font-size: 1.2rem;
+    color: var(--claret-800);
+    font-weight: 700;
+  }
+
+  .progress {
+    width: 100%;
+    height: 12px;
+    border-radius: 999px;
+    background: #d7cab7;
+    overflow: hidden;
+  }
+
+  .progress > span {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #ce9d53, #af7b38);
+    transition: width 0.35s ease;
+  }
+
+  .cta {
+    margin-top: 1rem;
+  }
+
+  .back {
+    text-decoration: none;
+    color: #fffaf0;
+    padding: 0.55rem 0.85rem;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #531127, #3b0d1b);
+  }
+
+  @keyframes reveal {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 860px) {
+    .grid,
+    .flow {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block body_extras %}
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+<script>
+  const statusUrl = "/api/trip/{{ trip.id }}/status/";
+  const aiUrl = "/api/trip/{{ trip.id }}/ai/";
+  const positionUrl = "/api/trip/{{ trip.id }}/position/";
+
+  const map = L.map("liveMap", { zoomControl: true }).setView([25.2861, 51.5348], 3);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors",
+  }).addTo(map);
+
+  const planeIcon = L.divIcon({
+    html: "✈",
+    className: "plane-icon",
+    iconSize: [22, 22],
+  });
+  const planeMarker = L.marker([25.2861, 51.5348], { icon: planeIcon }).addTo(map);
+  const routeLine = L.polyline([], { color: "#7a2846", weight: 3, opacity: 0.45, dashArray: "6 8" }).addTo(map);
+  const progressLine = L.polyline([], { color: "#ce9d53", weight: 4, opacity: 0.95 }).addTo(map);
+  const airportPins = L.featureGroup().addTo(map);
+
+  let flightState = null;
+  let syncClientMs = Date.now();
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function buildArcPoints(start, end, points = 64) {
+    const generated = [];
+    for (let i = 0; i <= points; i += 1) {
+      const t = i / points;
+      const lat = start[0] + (end[0] - start[0]) * t + Math.sin(t * Math.PI) * 1.5;
+      const lon = start[1] + (end[1] - start[1]) * t;
+      generated.push([lat, lon]);
+    }
+    return generated;
+  }
+
+  function pointAtProgress(start, end, t) {
+    const safeT = clamp(t, 0, 1);
+    const lat = start[0] + (end[0] - start[0]) * safeT + Math.sin(safeT * Math.PI) * 1.5;
+    const lon = start[1] + (end[1] - start[1]) * safeT;
+    return [lat, lon];
+  }
+
+  function progressFromClock() {
+    if (!flightState) return 0;
+    const nowMs = flightState.serverNowMs + (Date.now() - syncClientMs);
+    if (nowMs <= flightState.departMs) return 0;
+    if (nowMs >= flightState.arriveMs) return 1;
+    return (nowMs - flightState.departMs) / (flightState.arriveMs - flightState.departMs);
+  }
+
+  function renderPlane() {
+    if (!flightState) {
+      requestAnimationFrame(renderPlane);
+      return;
+    }
+
+    const progress = progressFromClock();
+    const pos = pointAtProgress(flightState.start, flightState.end, progress);
+
+    planeMarker.setLatLng(pos);
+    planeMarker.bindPopup(
+      `${flightState.flightCode}<br>${Math.round(progress * 100)}% complete`
+    );
+
+    const traveled = buildArcPoints(flightState.start, flightState.end, Math.max(2, Math.round(progress * 64)));
+    progressLine.setLatLngs(traveled);
+
+    document.getElementById("progressValue").textContent = Math.round(progress * 100);
+    document.getElementById("progressFill").style.width = `${Math.round(progress * 100)}%`;
+    document.getElementById("coordValue").textContent = `${pos[0].toFixed(4)}, ${pos[1].toFixed(4)}`;
+
+    requestAnimationFrame(renderPlane);
+  }
+
+  async function refreshStatus() {
+    try {
+      const response = await fetch(statusUrl);
+      if (!response.ok) return;
+      const data = await response.json();
+      document.getElementById("statusValue").textContent = data.status;
+    } catch (e) {
+      // Keep UI stable if polling fails.
+    }
+  }
+
+  async function refreshAiMessage() {
+    try {
+      const response = await fetch(aiUrl);
+      if (!response.ok) return;
+      const data = await response.json();
+      document.getElementById("aiMessage").textContent = data.message;
+    } catch (e) {
+      document.getElementById("aiMessage").textContent = "Travel assistant unavailable right now.";
+    }
+  }
+
+  async function refreshPosition() {
+    try {
+      const response = await fetch(positionUrl);
+      if (!response.ok) return;
+      const data = await response.json();
+
+      const start = [data.start_latitude, data.start_longitude];
+      const end = [data.end_latitude, data.end_longitude];
+      const arc = buildArcPoints(start, end);
+      routeLine.setLatLngs(arc);
+
+      if (!flightState) {
+        airportPins.clearLayers();
+        L.circleMarker(start, { radius: 6, color: "#4f0f24", fillColor: "#4f0f24", fillOpacity: 1 })
+          .bindPopup(`Departure: ${data.from_code}`)
+          .addTo(airportPins);
+        L.circleMarker(end, { radius: 6, color: "#ad7b38", fillColor: "#ad7b38", fillOpacity: 1 })
+          .bindPopup(`Arrival: ${data.to_code}`)
+          .addTo(airportPins);
+        map.fitBounds(L.latLngBounds([start, end]), { padding: [30, 30] });
+      }
+
+      flightState = {
+        start,
+        end,
+        departMs: Date.parse(data.depart_at),
+        arriveMs: Date.parse(data.arrive_at),
+        serverNowMs: Date.parse(data.updated_at),
+        flightCode: data.flight_code,
+      };
+      syncClientMs = Date.now();
+
+      document.getElementById("flightMetricValue").textContent = `${data.altitude_ft} ft / ${data.ground_speed_kts} kts`;
+    } catch (e) {
+      document.getElementById("coordValue").textContent = "Location unavailable right now.";
+    }
+  }
+
+  refreshStatus();
+  refreshAiMessage();
+  refreshPosition();
+  requestAnimationFrame(renderPlane);
+  setInterval(refreshStatus, 15000);
+  setInterval(refreshAiMessage, 60000);
+  setInterval(refreshPosition, 30000);
+</script>
+{% endblock %}
