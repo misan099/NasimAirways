@@ -20,6 +20,21 @@
     <div class="step">3. Confirm details</div>
   </section>
 
+  <section class="panel helper-grid">
+    <div class="helper-card">
+      <strong>Need faster support?</strong>
+      <p>Use the chat button for instant help with check-in, baggage, and refunds.</p>
+    </div>
+    <div class="helper-card">
+      <strong>Live flight map</strong>
+      <p>Open any flight to watch real-time route progress from departure to arrival.</p>
+    </div>
+    <div class="helper-card">
+      <strong>Smart recommendation</strong>
+      <p>We highlight the shortest-duration option so decision making is easier.</p>
+    </div>
+  </section>
+
   <section class="panel">
     <form method="get" action="/">
       <div>
@@ -68,7 +83,7 @@
       <div>
         <a href="/trip/{{ trip.id }}/"><strong>{{ trip.flight.flight_code }}</strong></a>
         {{ trip.flight.route.from_airport.code }} -> {{ trip.flight.route.to_airport.code }}
-        <div>Departure {{ trip.depart_at }} | Arrival {{ trip.arrive_at }}</div>
+        <div>Departure {{ trip.depart_at|date:"M d, Y H:i" }} | Arrival {{ trip.arrive_at|date:"M d, Y H:i" }}</div>
       </div>
       <a class="track-link" href="/trip/{{ trip.id }}/">View details</a>
     </article>
@@ -188,6 +203,25 @@
     box-shadow: 0 10px 26px rgba(17, 5, 9, 0.2);
   }
 
+  .helper-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.7rem;
+  }
+
+  .helper-card {
+    border: 1px solid rgba(90, 23, 48, 0.2);
+    border-radius: 12px;
+    background: #fff9f2;
+    padding: 0.8rem;
+  }
+
+  .helper-card p {
+    margin: 0.35rem 0 0;
+    color: #594737;
+    font-size: 0.9rem;
+  }
+
   form {
     display: grid;
     gap: 0.9rem;
@@ -275,7 +309,8 @@
 
   @media (max-width: 760px) {
     form,
-    .steps {
+    .steps,
+    .helper-grid {
       grid-template-columns: 1fr;
     }
 

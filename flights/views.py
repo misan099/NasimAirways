@@ -309,6 +309,69 @@ def trip_position_api(request, trip_id):
     return JsonResponse(_live_position_for_trip(trip, timezone.now()))
 
 
+def _triage_support_message(message):
+    lower_message = message.lower()
+
+    easy_rules = (
+        (
+            ("check-in", "check in", "checkin"),
+            "Online check-in usually opens 24 hours before departure and closes 60 minutes before takeoff for most routes.",
+        ),
+        (
+            ("baggage", "bag", "luggage", "carry on", "carry-on"),
+            "Most guests can bring 1 carry-on and 1 personal item. Checked baggage depends on fare type, so share your route and I can help estimate it.",
+        ),
+        (
+            ("refund", "cancel", "cancellation"),
+            "Refund timing depends on fare rules. Non-refundable fares often return taxes only; flexible fares can be refunded to your original payment method.",
+        ),
+        (
+            ("payment", "card", "pay"),
+            "Accepted payment methods include major cards. If payment fails, try matching billing address and retry with a fresh session.",
+        ),
+        (
+            ("reschedule", "change flight", "change booking", "change ticket"),
+            "You can change eligible bookings from Manage Trip. Change fees and fare differences depend on fare rules and route.",
+        ),
+        (
+            ("boarding pass", "mobile pass", "pass"),
+            "After successful check-in, your boarding pass is available in My Trips and can be downloaded to your phone.",
+        ),
+    )
+
+    for keywords, reply in easy_rules:
+        if any(keyword in lower_message for keyword in keywords):
+            return {"handled_by": "ai", "escalate": False, "reply": reply}
+
+    complex_signals = (
+        "complaint",
+        "legal",
+        "chargeback",
+        "emergency",
+        "medical",
+        "visa",
+        "passport issue",
+        "group booking",
+        "corporate booking",
+        "special assistance",
+        "not received",
+        "fraud",
+        "representative",
+        "agent",
+    )
+    if any(signal in lower_message for signal in complex_signals) or len(lower_message) > 220:
+        return {"handled_by": "ai", "escalate": True}
+
+    return {
+        "handled_by": "ai",
+        "escalate": False,
+        "reply": (
+            "I can help with check-in, baggage, payment, booking changes, and refund policy. "
+            "If you share more details, I will try to solve it first."
+        ),
+    }
+
+
 @require_POST
 def support_contact_api(request):
     try:
@@ -321,16 +384,51 @@ def support_contact_api(request):
     message = (payload.get("message") or "").strip()
     source_page = (payload.get("source_page") or "").strip()
 
-    if not name or not email or not message:
-        return JsonResponse({"error": "Name, email, and message are required."}, status=400)
+    if not message:
+        return JsonResponse({"error": "Please enter your message."}, status=400)
 
-    try:
-        validate_email(email)
-    except ValidationError:
-        return JsonResponse({"error": "Enter a valid email address."}, status=400)
+    triage = _triage_support_message(message)
+    if not triage.get("escalate"):
+        return JsonResponse(
+            {
+                "ok": True,
+                "handled_by": "ai",
+                "escalated": False,
+                "reply": triage["reply"],
+            }
+        )
+
+    if email:
+        try:
+            validate_email(email)
+        except ValidationError:
+            return JsonResponse(
+                {
+                    "ok": True,
+                    "handled_by": "ai",
+                    "escalated": False,
+                    "reply": (
+                        "This needs a representative. Please share a valid email so "
+                        "our team can follow up with you soon."
+                    ),
+                }
+            )
+
+    if not email:
+        return JsonResponse(
+            {
+                "ok": True,
+                "handled_by": "ai",
+                "escalated": False,
+                "reply": (
+                    "This looks like a complex request. Please add your email and "
+                    "send again so a representative can contact you soon."
+                ),
+            }
+        )
 
     SupportTicket.objects.create(
-        name=name,
+        name=name or "Guest",
         email=email,
         message=message,
         source_page=source_page[:200],
@@ -339,9 +437,11 @@ def support_contact_api(request):
     return JsonResponse(
         {
             "ok": True,
+            "handled_by": "ai",
+            "escalated": True,
             "reply": (
-                "Thanks, your request has been logged. "
-                "Our support team will reach out shortly."
+                "Thanks. A representative will get back to you soon. "
+                "Your request has been forwarded to our support desk."
             ),
         }
     )

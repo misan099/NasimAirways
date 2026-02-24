@@ -63,6 +63,25 @@
         background: #fffdf9;
       }
 
+      .quick-prompts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        padding: 0.65rem 0.7rem 0.2rem;
+        border-top: 1px solid #efe4d2;
+        background: #fff9f1;
+      }
+
+      .quick-prompt {
+        border: 1px solid #dec7a5;
+        border-radius: 999px;
+        padding: 0.25rem 0.55rem;
+        font-size: 0.78rem;
+        color: #4f0f24;
+        cursor: pointer;
+        background: #fff;
+      }
+
       .chat-row {
         margin-bottom: 0.55rem;
       }
@@ -132,12 +151,17 @@
         <p>Live help for booking, check-in, and refund questions.</p>
       </div>
       <div id="chatLog" class="chat-log"></div>
+      <div class="quick-prompts">
+        <button class="quick-prompt" type="button" data-prompt="When does check-in open?">Check-in time</button>
+        <button class="quick-prompt" type="button" data-prompt="What is the baggage allowance?">Baggage rules</button>
+        <button class="quick-prompt" type="button" data-prompt="How does refund policy work?">Refund policy</button>
+      </div>
       <form id="chatForm" class="chat-form">
-        <input id="chatName" type="text" name="name" placeholder="Your name" required />
-        <input id="chatEmail" type="email" name="email" placeholder="Your email" required />
+        <input id="chatName" type="text" name="name" placeholder="Your name (optional)" />
+        <input id="chatEmail" type="email" name="email" placeholder="Your email (needed for representative follow-up)" />
         <textarea id="chatMessage" name="message" rows="2" placeholder="How can we help?" required></textarea>
         <button type="submit">Send message</button>
-        <p class="chat-note">When agents are offline, your message becomes a support ticket.</p>
+        <p class="chat-note">AI answers quick questions first. Complex issues are escalated to a representative.</p>
       </form>
     </aside>
 
@@ -156,6 +180,7 @@
       const chatName = document.getElementById("chatName");
       const chatEmail = document.getElementById("chatEmail");
       const chatMessage = document.getElementById("chatMessage");
+      const quickPrompts = document.querySelectorAll(".quick-prompt");
 
       function appendChat(text, role = "bot") {
         const row = document.createElement("div");
@@ -170,10 +195,17 @@
         chatLog.scrollTop = chatLog.scrollHeight;
       }
 
-      appendChat("Hi. I can help with flight search, check-in windows, baggage, and refunds. Leave a message and our team follows up.");
+      appendChat("Hi, I am your NASIM AI assistant. I can solve quick questions now. For complex issues, I will route you to a representative.");
 
       chatFab.addEventListener("click", () => {
         chatBox.classList.toggle("open");
+      });
+
+      quickPrompts.forEach((button) => {
+        button.addEventListener("click", () => {
+          chatMessage.value = button.dataset.prompt || "";
+          chatMessage.focus();
+        });
       });
 
       chatForm.addEventListener("submit", async (event) => {

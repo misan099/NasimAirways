@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
-from .models import Airport, Flight, Route, Trip
+from .models import Airport, Flight, Route, SupportTicket, Trip
 
 
 class TripViewsTests(TestCase):
@@ -38,9 +38,9 @@ class TripViewsTests(TestCase):
         trip = self._create_trip(30, 100)
         response = self.client.get(f"/trip/{trip.id}/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "AI Operations Desk")
-        self.assertContains(response, "Risk Score")
-        self.assertContains(response, "Live Flight Map")
+        self.assertContains(response, "Operations insight")
+        self.assertContains(response, "Risk score")
+        self.assertContains(response, "Live map")
 
     def test_trip_status_api_returns_payload(self):
         trip = self._create_trip(-10, 120)
@@ -75,3 +75,29 @@ class TripViewsTests(TestCase):
         self.assertIn("altitude_ft", data)
         self.assertIn("ground_speed_kts", data)
         self.assertIn("mode", data)
+        self.assertIn("start_latitude", data)
+        self.assertIn("end_latitude", data)
+
+    def test_support_contact_api_answers_easy_questions_with_ai(self):
+        response = self.client.post(
+            "/api/support/contact/",
+            data='{"message":"When does check-in open?"}',
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["handled_by"], "ai")
+        self.assertFalse(data["escalated"])
+        self.assertIn("check-in", data["reply"].lower())
+        self.assertEqual(SupportTicket.objects.count(), 0)
+
+    def test_support_contact_api_escalates_complex_questions(self):
+        response = self.client.post(
+            "/api/support/contact/",
+            data='{"name":"Misan","email":"misan@example.com","message":"I need a representative for a group booking issue.","source_page":"/"}',
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["escalated"])
+        self.assertEqual(SupportTicket.objects.count(), 1)
