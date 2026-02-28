@@ -1,0 +1,169 @@
+{% extends "flights/base.html" %}
+
+{% block title %}NASIM | My Trips{% endblock %}
+
+{% block head_extras %}
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+{% endblock %}
+
+{% block content %}
+<main class="wrap">
+  <header class="topnav">
+    <a class="brand" href="/">NASIM AIRWAYS</a>
+    <nav class="links">
+      <a href="/">Book</a>
+      <a href="/my-trips/">My Trips</a>
+      <a href="/signout/">Sign out</a>
+      <a href="/ops-signin/">Admin sign in</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <p class="kicker">Passenger Portal</p>
+    <h1>Your booked flights</h1>
+    <p>Manage booked trips and check live operations in one place.</p>
+  </section>
+
+  <section class="cards">
+    {% for booking in bookings %}
+    <article class="trip-card" data-trip-id="{{ booking.trip.id }}" data-ref="{{ booking.reference }}">
+      <div class="trip-top">
+        <span class="icon">&#9992;</span>
+        <div>
+          <strong>{{ booking.trip.flight.flight_code }}</strong>
+          <div class="route">
+            {{ booking.trip.flight.route.from_airport.code }} -> {{ booking.trip.flight.route.to_airport.code }}
+          </div>
+        </div>
+        <span class="ref">Ref {{ booking.reference }}</span>
+      </div>
+      <div class="meta">
+        <div>&#128339; Departure: {{ booking.trip.depart_at|date:"M d, Y H:i" }} UTC</div>
+        <div>&#128205; {{ booking.trip.flight.route.from_airport.name }} to {{ booking.trip.flight.route.to_airport.name }}</div>
+      </div>
+      <a class="open" href="/trip/{{ booking.trip.id }}/?ref={{ booking.reference }}">Open live trip</a>
+    </article>
+    {% empty %}
+    <p class="empty">No booked flights yet. Head to <a href="/">Book</a> to reserve your first trip.</p>
+    {% endfor %}
+  </section>
+
+  <section class="map-panel">
+    <h2>Live operations map</h2>
+    <p>Real-time view for your booked flights.</p>
+    <div id="myTripsMap"></div>
+  </section>
+</main>
+
+<style>
+  body {
+    margin: 0;
+    font-family: "Avenir Next", "Gill Sans", sans-serif;
+    background:
+      radial-gradient(900px 500px at 0% -5%, rgba(154, 100, 197, 0.24), transparent 58%),
+      radial-gradient(1000px 500px at 100% 0%, rgba(225, 186, 114, 0.14), transparent 56%),
+      linear-gradient(160deg, #190729 0%, #2b0d41 42%, #3d1560 100%);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 1.2rem 1rem 6rem; color: #2e2037; }
+  .topnav { display: flex; justify-content: space-between; align-items: center; gap: .7rem; }
+  .brand { color: #f6ecff; font-weight: 800; text-decoration: none; letter-spacing: .08em; }
+  .links { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .links a { color: #f7e9ff; text-decoration: none; border: 1px solid rgba(234, 210, 250, .35); background: rgba(255,255,255,.08); border-radius: 999px; padding: .32rem .66rem; font-size: .82rem; }
+
+  .hero { margin-top: 1rem; border-radius: 22px; color: #f7f1ff; padding: 1.35rem; background: linear-gradient(128deg, #2b0d41 0%, #4a1d6c 55%, #6b2f96 100%); }
+  .kicker { margin: 0; text-transform: uppercase; letter-spacing: .16em; font-size: .72rem; color: #dfc8f4; }
+  .hero h1 { margin: .35rem 0 0; }
+  .hero p { margin: .55rem 0 0; color: #ecddfb; }
+
+  .cards { margin-top: 1rem; display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .trip-card { background: rgba(255,255,255,.96); border: 1px solid rgba(124, 78, 170, .2); border-radius: 14px; padding: .85rem; box-shadow: 0 12px 28px rgba(31,11,48,.2); }
+  .trip-top { display: flex; align-items: center; gap: .7rem; }
+  .icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(180deg, #8a4fb8, #66308f); color: #fff; font-size: 16px; }
+  .route { color: #5d4a6f; font-size: .9rem; }
+  .ref { margin-left: auto; font-size: .8rem; color: #6b5978; border: 1px solid #ddc7f0; background: #f8f0ff; border-radius: 999px; padding: .15rem .52rem; }
+  .meta { margin-top: .55rem; color: #6b5978; display: grid; gap: .24rem; font-size: .88rem; }
+  .open { display: inline-block; margin-top: .65rem; text-decoration: none; color: #fdf7ff; background: linear-gradient(180deg, #7f46ae, #5b2c85); border-radius: 10px; padding: .42rem .66rem; font-size: .82rem; font-weight: 700; }
+  .empty { background: rgba(255,255,255,.96); border: 1px solid rgba(124, 78, 170, .2); border-radius: 14px; padding: .85rem; color: #5f4d70; }
+  .empty a { color: #6b2f96; font-weight: 700; }
+
+  .map-panel { margin-top: 1rem; background: rgba(255,255,255,.96); border: 1px solid rgba(124, 78, 170, .2); border-radius: 18px; padding: 1rem; box-shadow: 0 12px 28px rgba(31,11,48,.2); }
+  .map-panel h2 { margin: 0; }
+  .map-panel p { margin: .35rem 0 .8rem; color: #6f5b7f; }
+  #myTripsMap { width: 100%; height: 420px; border-radius: 14px; border: 1px solid rgba(126, 84, 174, .2); }
+</style>
+{% endblock %}
+
+{% block body_extras %}
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+<script>
+  const cards = Array.from(document.querySelectorAll(".trip-card"));
+  const map = L.map("myTripsMap", { zoomControl: true }).setView([25, 20], 2);
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom: 19,
+    attribution: "Tiles &copy; Esri",
+  }).addTo(map);
+
+  const markers = new Map();
+  const lines = new Map();
+
+  function markerIcon() {
+    return L.divIcon({
+      html: '<div style="width:18px;height:18px;border-radius:50%;background:linear-gradient(180deg,#8a4fb8,#66308f);display:grid;place-items:center;color:#fff;font-size:12px;">&#9992;</div>',
+      className: "",
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    });
+  }
+
+  async function refreshMyTripsMap() {
+    if (!cards.length) return;
+    const boundsPoints = [];
+
+    await Promise.all(cards.map(async (card) => {
+      const tripId = card.dataset.tripId;
+      const ref = card.dataset.ref;
+      try {
+        const response = await fetch(`/api/trip/${tripId}/position/?ref=${encodeURIComponent(ref)}`);
+        if (!response.ok) return;
+        const data = await response.json();
+
+        const start = [data.start_latitude, data.start_longitude];
+        const end = [data.end_latitude, data.end_longitude];
+        const current = [data.latitude, data.longitude];
+
+        if (!markers.has(tripId)) {
+          markers.set(tripId, L.marker(current, { icon: markerIcon() }).addTo(map));
+        }
+        if (!lines.has(tripId)) {
+          lines.set(tripId, L.polyline([start, end], { color: "#d3a24f", weight: 2, opacity: 0.65 }).addTo(map));
+        }
+
+        markers.get(tripId).setLatLng(current);
+        markers.get(tripId).bindPopup(`${data.flight_code}<br>${data.from_code} -> ${data.to_code}<br>Status: ${data.status}`);
+        lines.get(tripId).setLatLngs([start, end]);
+
+        boundsPoints.push(start, end);
+      } catch (_err) {
+        // Keep the map stable if one of the trip position calls fails.
+      }
+    }));
+
+    if (boundsPoints.length > 1) {
+      map.fitBounds(L.latLngBounds(boundsPoints), { padding: [20, 20] });
+    }
+  }
+
+  refreshMyTripsMap();
+  setInterval(refreshMyTripsMap, 30000);
+</script>
+{% endblock %}

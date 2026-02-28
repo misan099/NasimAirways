@@ -1,137 +1,207 @@
-{% extends "admin/base_site.html" %}
+{% extends "admin/base.html" %}
+
+{% block title %}{{ title }} | NASIM Operations{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="/admin/">NASIM Airways Admin</a></h1>
+{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
 <style>
   :root {
-    --admin-primary: #4f0f24;
-    --admin-primary-dark: #2e0814;
-    --admin-accent: #ad7b38;
-    --admin-surface: #fffaf3;
-    --admin-surface-2: #f7ecdb;
-    --admin-ink: #2b1f14;
-    --admin-border: #e8d7be;
+    --admin-plum-950: #1a0726;
+    --admin-plum-900: #2a0c3f;
+    --admin-plum-800: #3b1458;
+    --admin-violet-500: #7d43ad;
+    --admin-gold-500: #d3a24f;
+    --admin-gold-400: #e1ba72;
+    --admin-surface: #fdfafe;
+    --admin-surface-2: #f6effa;
+    --admin-ink: #362646;
+    --admin-border: #dcc8ea;
+    --admin-ok: #2d7a53;
+    --admin-warn: #9c620f;
   }
 
   body {
     color: var(--admin-ink);
     background:
-      radial-gradient(900px 420px at 0% -15%, rgba(207, 159, 79, 0.16), transparent 55%),
-      radial-gradient(880px 420px at 100% 0%, rgba(79, 15, 36, 0.14), transparent 55%),
-      #f3eee5;
+      radial-gradient(980px 460px at 0% -10%, rgba(154, 100, 197, 0.22), transparent 58%),
+      radial-gradient(860px 430px at 100% 0%, rgba(225, 186, 114, 0.2), transparent 55%),
+      #f7f1fb;
   }
 
   #header {
-    background: linear-gradient(130deg, var(--admin-primary-dark), #7a2846);
-    color: #fff;
+    background: linear-gradient(120deg, var(--admin-plum-950), var(--admin-plum-800));
+    color: #f9f3ff;
+    box-shadow: 0 8px 20px rgba(21, 8, 32, 0.2);
   }
 
   #branding h1,
   #branding h1 a:link,
   #branding h1 a:visited {
-    color: #fff;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    color: #f9f3ff;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 1.05rem;
   }
 
   #user-tools,
   #user-tools a {
-    color: #f9ecd7;
+    color: #eddffa;
   }
 
   div.breadcrumbs {
-    background: linear-gradient(90deg, #5d1832, #7a2846);
-    color: #f9ecd7;
+    background: linear-gradient(90deg, #431865, #6b2f96);
+    color: #f4e9ff;
+    border-bottom: 1px solid rgba(220, 200, 234, 0.7);
   }
 
   div.breadcrumbs a {
-    color: #fff9ee;
+    color: #fff8ef;
   }
 
   .module h2,
   .module caption,
   .inline-group h2 {
-    background: linear-gradient(130deg, var(--admin-primary), #7a2846);
-    color: #fff9ee;
+    background: linear-gradient(120deg, #5b2480, #7d43ad);
+    color: #fdf6ff;
   }
 
   #content-main .module,
   .dashboard .module,
   .submit-row,
   .inline-related,
-  .aligned fieldset {
+  .aligned fieldset,
+  .results,
+  #changelist-filter,
+  #changelist-form .actions {
     border: 1px solid var(--admin-border);
     border-radius: 12px;
     overflow: hidden;
     background: var(--admin-surface);
-    box-shadow: 0 8px 18px rgba(24, 5, 12, 0.08);
-  }
-
-  .results,
-  #changelist-form .actions,
-  #changelist-filter {
-    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(38, 13, 55, 0.08);
   }
 
   #changelist-filter {
-    background: var(--admin-surface);
-    border: 1px solid var(--admin-border);
+    background: linear-gradient(180deg, #fdfafe 0%, #f6effa 100%);
   }
 
   .button,
   input[type=submit],
   input[type=button],
   .submit-row input,
-  a.button {
-    background: linear-gradient(180deg, #d3a45d, var(--admin-accent));
-    border: 1px solid #8a5f28;
-    color: #fff9ee;
+  a.button,
+  .object-tools a:link,
+  .object-tools a:visited {
+    background: linear-gradient(180deg, var(--admin-gold-400), var(--admin-gold-500));
+    border: 1px solid #a8793a;
+    color: #fff8ef;
+    border-radius: 8px;
+    text-shadow: none;
   }
 
   .button:hover,
   input[type=submit]:hover,
   input[type=button]:hover,
   .submit-row input:hover,
-  a.button:hover {
-    background: linear-gradient(180deg, #c6954f, #9f6f31);
+  a.button:hover,
+  .object-tools a:hover {
+    background: linear-gradient(180deg, #e6c48a, #c59246);
+    color: #ffffff;
+  }
+
+  .deletelink,
+  a.deletelink {
+    background: linear-gradient(180deg, #cb5d5d, #a23b3b) !important;
+    border-color: #8e3434 !important;
   }
 
   a:link,
   a:visited {
-    color: #5a1730;
+    color: #6b2f96;
   }
 
   a:hover {
-    color: #3f0d1f;
+    color: #4d216d;
   }
 
   table thead th {
-    background: #f6ead7;
+    background: #f4ecfb;
     border-bottom: 1px solid var(--admin-border);
   }
 
   tr:nth-child(even) {
-    background: #fff7ea;
+    background: #fcf8ff;
   }
 
-  input, textarea, select {
+  .row1,
+  .row2 {
+    border-bottom: 1px solid #ecdef6;
+  }
+
+  input,
+  textarea,
+  select {
     border-radius: 8px;
-    border: 1px solid #d8c6a9;
+    border: 1px solid #d9c5e8;
+    background: #fffdff;
+    color: #3b2a4a;
+  }
+
+  .selector select {
+    min-height: 220px;
+  }
+
+  .messagelist li.success {
+    background: #eaf9f0;
+    border-color: #bde7cd;
+    color: var(--admin-ok);
+  }
+
+  .messagelist li.warning {
+    background: #fff5e5;
+    border-color: #f5ddb3;
+    color: var(--admin-warn);
+  }
+
+  .messagelist li.error {
+    background: #fdeeee;
+    border-color: #f3bdbd;
+    color: #8f2a2a;
   }
 
   body.login {
     background:
-      radial-gradient(circle at 10% -20%, rgba(207, 159, 79, 0.35) 0%, transparent 45%),
-      radial-gradient(circle at 100% 0%, rgba(79, 15, 36, 0.2) 0%, transparent 42%),
-      #f3eee5;
+      radial-gradient(circle at 8% -18%, rgba(154, 100, 197, 0.36) 0%, transparent 44%),
+      radial-gradient(circle at 100% 0%, rgba(225, 186, 114, 0.24) 0%, transparent 42%),
+      #f5edfb;
   }
 
   body.login #header {
     border-radius: 14px 14px 0 0;
   }
 
-  body.login .form-row {
-    padding: 10px 14px;
+  body.login .submit-row {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+
+  #content {
+    padding-top: 16px;
+  }
+
+  @media (max-width: 900px) {
+    #header {
+      padding: 10px 14px;
+    }
+
+    #user-tools {
+      font-size: 11px;
+    }
   }
 </style>
 {% endblock %}

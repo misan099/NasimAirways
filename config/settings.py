@@ -18,9 +18,6 @@ SECRET_KEY = os.environ.get(
     "django-insecure-dev-key-change-me",
 )
 
-# Set DEBUG=False in production.
-DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
-
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get(
@@ -29,6 +26,15 @@ ALLOWED_HOSTS = [
     ).split(",")
     if host.strip()
 ]
+
+# Set DEBUG=False in production.
+# Local fallback: if only localhost hosts are configured, keep DEBUG on so
+# static assets (including admin CSS) work without collectstatic.
+DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
+if not DEBUG:
+    local_only_hosts = {"127.0.0.1", "localhost"}
+    if ALLOWED_HOSTS and set(ALLOWED_HOSTS).issubset(local_only_hosts):
+        DEBUG = True
 
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
@@ -59,7 +65,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-if importlib.util.find_spec("whitenoise") is not None:
+if importlib.util.find_spec("whitenoise") is not None and not DEBUG:
     MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
 
 ROOT_URLCONF = 'config.urls'
@@ -154,9 +160,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / "staticfiles"
-if importlib.util.find_spec("whitenoise") is not None:
+if importlib.util.find_spec("whitenoise") is not None and not DEBUG:
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

@@ -3,38 +3,82 @@
 {% block content %}
 {% if admin_metrics %}
 <style>
+  .ops-shell {
+    margin-bottom: 20px;
+  }
+
+  .ops-hero {
+    border: 1px solid #dac5e9;
+    border-radius: 14px;
+    padding: 14px;
+    background:
+      linear-gradient(120deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02)),
+      linear-gradient(125deg, #431865 0%, #5d2a84 54%, #7d43ad 100%);
+    color: #f7f1ff;
+    box-shadow: 0 10px 24px rgba(30, 10, 44, 0.2);
+  }
+
+  .ops-kicker {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-size: 11px;
+    color: #e6d3f8;
+  }
+
+  .ops-title {
+    margin: 4px 0 0;
+    font-size: 24px;
+    line-height: 1.1;
+  }
+
+  .ops-sub {
+    margin: 8px 0 0;
+    color: #f0e5fb;
+    font-size: 13px;
+  }
+
   .admin-grid {
+    margin-top: 14px;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 12px;
-    margin-bottom: 18px;
+    gap: 10px;
   }
 
   .admin-card {
-    background: #fffaf3;
-    border: 1px solid #e8d7be;
-    border-radius: 10px;
-    padding: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbf6ff 100%);
+    border: 1px solid #dbc7e9;
+    border-radius: 11px;
+    padding: 11px;
   }
 
   .admin-label {
-    font-size: 12px;
-    color: #6b5946;
+    font-size: 11px;
+    color: #715d81;
     text-transform: uppercase;
+    letter-spacing: 0.06em;
   }
 
   .admin-value {
-    font-size: 26px;
-    font-weight: 700;
-    color: #4f0f24;
+    margin-top: 2px;
+    font-size: 25px;
+    font-weight: 800;
+    color: #5e2f83;
+    line-height: 1.1;
   }
 
   .admin-section {
-    background: #fffaf3;
-    border: 1px solid #e8d7be;
-    border-radius: 10px;
+    margin-top: 12px;
+    background: #fdf9ff;
+    border: 1px solid #dbc7e9;
+    border-radius: 11px;
     padding: 12px;
-    margin-bottom: 18px;
+  }
+
+  .admin-section h2 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    color: #5c2f81;
   }
 
   .quick-links {
@@ -45,63 +89,119 @@
   }
 
   .quick-link {
-    background: #f9efdf;
-    border: 1px solid #e2ceb0;
-    border-radius: 8px;
+    border: 1px solid #dbc7e9;
+    border-radius: 9px;
     padding: 9px 10px;
     text-decoration: none;
-    font-weight: 600;
-    color: #4f0f24;
+    font-weight: 700;
+    color: #5d2f84;
+    background: linear-gradient(180deg, #ffffff 0%, #f8f0ff 100%);
+  }
+
+  .quick-link:hover {
+    border-color: #ccb2df;
+    background: linear-gradient(180deg, #ffffff 0%, #f2e6fd 100%);
+    color: #4e256f;
+  }
+
+  .departure-list {
+    margin: 0;
+    padding-left: 18px;
+  }
+
+  .departure-list li {
+    margin-bottom: 6px;
+    color: #644f74;
+  }
+
+  .ops-tag-row {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ops-tag {
+    border: 1px solid rgba(235, 216, 250, 0.35);
+    background: rgba(255, 255, 255, 0.1);
+    color: #f1e4fc;
+    border-radius: 999px;
+    font-size: 11px;
+    padding: 3px 8px;
   }
 </style>
 
-<div class="admin-grid">
-  <div class="admin-card">
-    <div class="admin-label">Airports</div>
-    <div class="admin-value">{{ admin_metrics.airports }}</div>
+<section class="ops-shell">
+  <div class="ops-hero">
+    <p class="ops-kicker">Operations Console</p>
+    <h1 class="ops-title">NASIM Airways Admin Control</h1>
+    <p class="ops-sub">Monitor fleet schedules, update delays, and coordinate passenger communications from one dashboard.</p>
+    <div class="ops-tag-row">
+      <span class="ops-tag">Schedule Management</span>
+      <span class="ops-tag">Delay Broadcasts</span>
+      <span class="ops-tag">Guest Support</span>
+    </div>
   </div>
-  <div class="admin-card">
-    <div class="admin-label">Routes</div>
-    <div class="admin-value">{{ admin_metrics.routes }}</div>
-  </div>
-  <div class="admin-card">
-    <div class="admin-label">Flights</div>
-    <div class="admin-value">{{ admin_metrics.flights }}</div>
-  </div>
-  <div class="admin-card">
-    <div class="admin-label">Upcoming Trips</div>
-    <div class="admin-value">{{ admin_metrics.upcoming_trips }}</div>
-  </div>
-  <div class="admin-card">
-    <div class="admin-label">Open Tickets</div>
-    <div class="admin-value">{{ admin_metrics.open_tickets }}</div>
-  </div>
-</div>
 
-<div class="admin-section">
-  <h2 style="margin:0 0 8px 0;">Quick actions</h2>
-  <div class="quick-links">
-    <a class="quick-link" href="/admin/flights/trip/">Manage trips and schedules</a>
-    <a class="quick-link" href="/admin/flights/supportticket/">Reply to support tickets</a>
-    <a class="quick-link" href="/admin/flights/flight/">Manage flights and routes</a>
-    <a class="quick-link" href="/">Open customer search page</a>
+  <div class="admin-grid">
+    <div class="admin-card">
+      <div class="admin-label">Airports</div>
+      <div class="admin-value">{{ admin_metrics.airports }}</div>
+    </div>
+    <div class="admin-card">
+      <div class="admin-label">Routes</div>
+      <div class="admin-value">{{ admin_metrics.routes }}</div>
+    </div>
+    <div class="admin-card">
+      <div class="admin-label">Flights</div>
+      <div class="admin-value">{{ admin_metrics.flights }}</div>
+    </div>
+    <div class="admin-card">
+      <div class="admin-label">Upcoming Trips</div>
+      <div class="admin-value">{{ admin_metrics.upcoming_trips }}</div>
+    </div>
+    <div class="admin-card">
+      <div class="admin-label">Open Tickets</div>
+      <div class="admin-value">{{ admin_metrics.open_tickets }}</div>
+    </div>
+    <div class="admin-card">
+      <div class="admin-label">Bookings Today</div>
+      <div class="admin-value">{{ admin_metrics.bookings_today }}</div>
+    </div>
   </div>
-</div>
 
-<div class="admin-section">
-  <h2 style="margin:0 0 8px 0;">Next departures</h2>
-  {% if admin_metrics.recent_departures %}
-  <ul style="margin:0;padding-left:18px;">
-    {% for trip in admin_metrics.recent_departures %}
-    <li style="margin-bottom:4px;">
-      {{ trip.flight.flight_code }}: {{ trip.flight.route.from_airport.code }} to {{ trip.flight.route.to_airport.code }} at {{ trip.depart_at }}
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p style="margin:0;">No upcoming trips scheduled.</p>
-  {% endif %}
-</div>
+  <div class="admin-section">
+    <h2>Quick Actions</h2>
+    <div class="quick-links">
+      <a class="quick-link" href="/admin/flights/airport/add/">Add airport</a>
+      <a class="quick-link" href="/admin/flights/route/add/">Add route</a>
+      <a class="quick-link" href="/admin/flights/flight/add/">Add flight number</a>
+      <a class="quick-link" href="/admin/flights/trip/add/">Add trip schedule</a>
+      <a class="quick-link" href="/admin/flights/booking/">View bookings</a>
+      <a class="quick-link" href="/admin/flights/booking/">Passenger details</a>
+      <a class="quick-link" href="/admin/flights/trip/?live_status=scheduled">Set delays / send delay SMS</a>
+      <a class="quick-link" href="/admin/flights/trip/">Manage trips and schedules</a>
+      <a class="quick-link" href="/admin/flights/supportticket/">Reply to support tickets</a>
+      <a class="quick-link" href="/admin/flights/flight/">Manage flights and routes</a>
+      <a class="quick-link" href="/">Open customer search page</a>
+    </div>
+  </div>
+
+  <div class="admin-section">
+    <h2>Next departures</h2>
+    {% if admin_metrics.recent_departures %}
+    <ul class="departure-list">
+      {% for trip in admin_metrics.recent_departures %}
+      <li>
+        {{ trip.flight.flight_code }}: {{ trip.flight.route.from_airport.code }} to {{ trip.flight.route.to_airport.code }} at {{ trip.depart_at }}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p style="margin:0;">No upcoming trips scheduled.</p>
+    {% endif %}
+  </div>
+</section>
 {% endif %}
 
 {{ block.super }}

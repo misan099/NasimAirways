@@ -8,7 +8,7 @@ def admin_insights(request):
         return {}
 
     try:
-        from .models import Airport, Flight, Route, SupportTicket, Trip
+        from .models import Airport, Booking, Flight, Route, SupportTicket, Trip
 
         now = timezone.now()
         upcoming_qs = (
@@ -22,6 +22,7 @@ def admin_insights(request):
             "flights": Flight.objects.count(),
             "upcoming_trips": Trip.objects.filter(depart_at__gte=now).count(),
             "open_tickets": SupportTicket.objects.filter(status=SupportTicket.Status.OPEN).count(),
+            "bookings_today": Booking.objects.filter(created_at__date=now.date()).count(),
             "recent_departures": list(upcoming_qs),
         }
         return {"admin_metrics": admin_metrics}

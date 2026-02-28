@@ -5,6 +5,8 @@ A Django-based airline operations and passenger experience demo project.
 ## Highlights
 - Human-friendly flight search and detail pages
 - Live route map with animated aircraft movement
+- Booking flow with booking reference confirmation
+- Private tracking (booking reference required + unlock near departure)
 - AI-supported chat triage for quick support questions
 - Automatic escalation to support representatives for complex issues
 - Branded admin dashboard with operational metrics and quick actions
@@ -37,6 +39,41 @@ pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver
 ```
+
+## Booking + Tracking Rules
+- Guests can book directly from a trip detail page.
+- Each booking gets a unique booking reference.
+- Booking includes optional passenger phone to receive delay SMS alerts.
+- Live trip tracking APIs are locked unless:
+  1. A valid booking reference is provided for that trip.
+  2. Departure is within 45 minutes (or flight already in progress).
+
+## Airport Display
+- User-facing pages show full airport name, IATA code, city, and country.
+- The live map loads all matching routes from admin data (no hard cap of 20 in code).
+
+## Admin Data Entry Workflow (Fastest)
+Use Admin quick actions:
+1. Add airport
+2. Add route
+3. Add flight number
+4. Add trip schedule
+
+The admin also supports:
+- Inlines to add outbound routes from an airport
+- Inlines to add trips from a flight
+- One-click action to duplicate selected trips +7 days
+- Delay operations from trip admin:
+  - Set delay minutes and notes directly in list view
+  - Apply 30-minute delay action
+  - Send delay SMS notifications to confirmed bookings with phone numbers
+
+### Optional Real SMS (Twilio)
+Set environment variables:
+- `SMS_PROVIDER=twilio`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_FROM_NUMBER`
 
 ## Environment Variables
 Use `.env.example` as a reference.

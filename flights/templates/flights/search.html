@@ -2,321 +2,691 @@
 
 {% block title %}NASIM | Search Flights{% endblock %}
 
+{% block head_extras %}
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+{% endblock %}
+
 {% block content %}
 <main class="page">
-  <div class="topbar">
-    <div class="brand">NASIM Airways</div>
-    <div class="chip">Guest-first booking experience</div>
-  </div>
+  <header class="mast-nav">
+    <a class="nav-brand" href="/" aria-label="NASIM Airways home">
+      <span class="wing">NASIM</span>
+      <span class="air">AIRWAYS</span>
+      <span class="sr-only">NASIM Airways</span>
+    </a>
+    <nav class="nav-links">
+      <a href="#book">Book</a>
+      <a href="/my-trips/">Manage</a>
+      <a href="/">Flight Status</a>
+      {% if request.user.is_authenticated and not request.user.is_staff %}
+      <a href="/my-trips/">My Trips</a>
+      <a href="/signout/">Sign out</a>
+      {% else %}
+      <a href="/signin/">Sign in</a>
+      {% endif %}
+      <a href="/ops-signin/">Admin sign in</a>
+    </nav>
+  </header>
 
   <section class="hero">
-    <h1>Plan your trip with confidence.</h1>
-    <p>Simple search, clear choices, and support if you need help at any step.</p>
+    <div class="hero-copy">
+      <p class="hero-kicker">Global Premium Network</p>
+      <h1>Book with confidence. Track with precision.</h1>
+      <p>
+        Explore routes with full airport names and locations, compare schedules quickly,
+        and monitor live operations in one place.
+      </p>
+      <div class="trust-row">
+        <span>24/7 guest support</span>
+        <span>Real-time operations feed</span>
+        <span>Private booking-based tracking</span>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <article class="hero-stat">
+        <span>Visible flights</span>
+        <strong id="statVisible">{{ trips|length }}</strong>
+      </article>
+      <article class="hero-stat">
+        <span>In air now</span>
+        <strong id="statInAir">0</strong>
+      </article>
+      <article class="hero-stat">
+        <span>Boarding now</span>
+        <strong id="statBoarding">0</strong>
+      </article>
+    </div>
   </section>
 
-  <section class="panel steps">
-    <div class="step active">1. Search</div>
-    <div class="step">2. Choose flight</div>
-    <div class="step">3. Confirm details</div>
-  </section>
-
-  <section class="panel helper-grid">
-    <div class="helper-card">
-      <strong>Need faster support?</strong>
-      <p>Use the chat button for instant help with check-in, baggage, and refunds.</p>
+  <section class="panel search-panel" id="book">
+    <div>
+      <h2>Find Your Flight</h2>
+      <p>Select origin and destination to view available schedules.</p>
     </div>
-    <div class="helper-card">
-      <strong>Live flight map</strong>
-      <p>Open any flight to watch real-time route progress from departure to arrival.</p>
-    </div>
-    <div class="helper-card">
-      <strong>Smart recommendation</strong>
-      <p>We highlight the shortest-duration option so decision making is easier.</p>
-    </div>
-  </section>
-
-  <section class="panel">
     <form method="get" action="/">
       <div>
-        <label for="from">Departing From</label>
+        <label for="from">From</label>
         <select id="from" name="from">
           <option value="">Any airport</option>
           {% for airport in airports %}
           <option value="{{ airport.code }}" {% if airport.code == from_code %}selected{% endif %}>
-            {{ airport.code }} | {{ airport.city }}
+            {{ airport.name }} ({{ airport.code }}) - {{ airport.city }}, {{ airport.country }}
           </option>
           {% endfor %}
         </select>
       </div>
 
       <div>
-        <label for="to">Arriving To</label>
+        <label for="to">To</label>
         <select id="to" name="to">
           <option value="">Any airport</option>
           {% for airport in airports %}
           <option value="{{ airport.code }}" {% if airport.code == to_code %}selected{% endif %}>
-            {{ airport.code }} | {{ airport.city }}
+            {{ airport.name }} ({{ airport.code }}) - {{ airport.city }}, {{ airport.country }}
           </option>
           {% endfor %}
         </select>
       </div>
 
       <div>
-        <button type="submit">Find flights</button>
+        <button type="submit">Search Flights</button>
       </div>
     </form>
   </section>
 
+  <section class="panel map-panel">
+    <div class="panel-head">
+      <h2>Live Network Operations Map</h2>
+      <p id="networkTimestamp">Refreshing...</p>
+    </div>
+    <div id="networkMap"></div>
+    <div class="legend">
+      <span><i class="dot dot-air"></i>In Air</span>
+      <span><i class="dot dot-boarding"></i>Boarding</span>
+      <span><i class="dot dot-delayed"></i>Delayed</span>
+      <span><i class="dot dot-ground"></i>Scheduled/Arrived</span>
+    </div>
+  </section>
+
   {% if ai_recommended_trip %}
-  <section class="panel">
-    <strong>Recommended for comfort and shortest duration:</strong>
+  <section class="panel recommendation">
+    <strong>Recommended option:</strong>
     <a href="/trip/{{ ai_recommended_trip.id }}/">{{ ai_recommended_trip.flight.flight_code }}</a>
-    {{ ai_recommended_trip.flight.route.from_airport.code }} to {{ ai_recommended_trip.flight.route.to_airport.code }}
-    <span class="ai-ribbon">Smart pick</span>
+    {{ ai_recommended_trip.flight.route.from_airport.name }} to {{ ai_recommended_trip.flight.route.to_airport.name }}
+    <span class="ai-ribbon">Best duration</span>
   </section>
   {% endif %}
 
   <section class="panel">
-    <h2>Available flights</h2>
-    {% for trip in trips %}
-    <article class="trip">
-      <div>
-        <a href="/trip/{{ trip.id }}/"><strong>{{ trip.flight.flight_code }}</strong></a>
-        {{ trip.flight.route.from_airport.code }} -> {{ trip.flight.route.to_airport.code }}
-        <div>Departure {{ trip.depart_at|date:"M d, Y H:i" }} | Arrival {{ trip.arrive_at|date:"M d, Y H:i" }}</div>
-      </div>
-      <a class="track-link" href="/trip/{{ trip.id }}/">View details</a>
-    </article>
-    {% empty %}
-    <p>No flights available for this selection yet. Try another route or date window.</p>
-    {% endfor %}
+    <h2>Available Flights</h2>
+    <div class="trip-grid">
+      {% for trip in trips %}
+      <article class="trip">
+        <div class="trip-top">
+          <a href="/trip/{{ trip.id }}/" class="flight-code"><strong>{{ trip.flight.flight_code }}</strong></a>
+          <span class="route-pill">{{ trip.flight.route.from_airport.code }} -> {{ trip.flight.route.to_airport.code }}</span>
+        </div>
+        <div class="trip-route">
+          {{ trip.flight.route.from_airport.name }} ({{ trip.flight.route.from_airport.code }})
+          to
+          {{ trip.flight.route.to_airport.name }} ({{ trip.flight.route.to_airport.code }})
+        </div>
+        <div class="trip-time">
+          Departure {{ trip.depart_at|date:"M d, Y H:i" }} UTC<br />
+          Arrival {{ trip.arrive_at|date:"M d, Y H:i" }} UTC
+          {% if trip.delay_minutes %}
+          <br />Delay: {{ trip.delay_minutes }} min{% if trip.delay_note %} ({{ trip.delay_note }}){% endif %}
+          {% endif %}
+        </div>
+        <a class="track-link" href="/trip/{{ trip.id }}/">Book / View</a>
+      </article>
+      {% empty %}
+      <p>No flights available for this selection yet. Try another route.</p>
+      {% endfor %}
+    </div>
   </section>
 </main>
 
 <style>
   :root {
-    --claret-900: #22060f;
-    --claret-800: #3f0d1f;
-    --claret-700: #5a1730;
-    --sand-100: #f6f1e8;
-    --gold-400: #cf9f4f;
-    --ink: #231a13;
-    --card: rgba(255, 250, 242, 0.94);
+    --plum-950: #1a0726;
+    --plum-900: #2a0c3f;
+    --plum-800: #3b1458;
+    --violet-500: #7d43ad;
+    --violet-400: #9a64c5;
+    --gold-500: #d3a24f;
+    --gold-400: #e1ba72;
+    --ink: #2e2037;
+    --panel: rgba(255, 255, 255, 0.97);
   }
 
-  * {
-    box-sizing: border-box;
-  }
+  * { box-sizing: border-box; }
 
   body {
     margin: 0;
     color: var(--ink);
-    font-family: "Optima", "Palatino Linotype", serif;
+    font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
     background:
-      radial-gradient(1000px 600px at 10% -5%, rgba(207, 159, 79, 0.22), transparent 60%),
-      radial-gradient(900px 500px at 90% 0%, rgba(90, 23, 48, 0.22), transparent 55%),
-      linear-gradient(150deg, #1b050d 0%, #400f21 42%, #5d1832 100%);
+      radial-gradient(900px 500px at 0% -5%, rgba(154, 100, 197, 0.24), transparent 58%),
+      radial-gradient(1000px 500px at 100% 0%, rgba(225, 186, 114, 0.14), transparent 56%),
+      linear-gradient(160deg, #190729 0%, #2b0d41 42%, #3d1560 100%);
     min-height: 100vh;
   }
 
   .page {
-    max-width: 1100px;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 1.2rem 1rem 6rem;
+    padding: 1.1rem 1rem 6rem;
   }
 
-  .topbar {
+  .mast-nav {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    color: var(--sand-100);
-    margin-bottom: 1rem;
     gap: 0.8rem;
+    margin-bottom: 1rem;
   }
 
-  .brand {
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    font-weight: 700;
+  .nav-brand {
+    color: #f9f2ff;
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    letter-spacing: 0.07em;
+    text-decoration: none;
   }
 
-  .chip {
-    border: 1px solid rgba(232, 220, 199, 0.4);
-    padding: 0.35rem 0.75rem;
-    border-radius: 999px;
-    font-size: 0.85rem;
+  .wing {
+    font-weight: 800;
+    font-size: 1.05rem;
+  }
+
+  .air {
+    font-size: 0.8rem;
+    color: #e9d8fb;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+
+  .nav-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .nav-links a {
+    color: #f6e8ff;
+    text-decoration: none;
+    border: 1px solid rgba(237, 207, 255, 0.28);
     background: rgba(255, 255, 255, 0.06);
+    padding: 0.3rem 0.62rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
   }
 
   .hero {
-    border-radius: 26px;
+    border-radius: 24px;
+    padding: 1.55rem;
+    color: #f7f1ff;
     background:
-      linear-gradient(130deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)),
-      linear-gradient(120deg, #2a0813 0%, #631831 62%, #7f2a49 100%);
-    color: var(--sand-100);
-    padding: 1.7rem;
-    box-shadow: 0 18px 45px rgba(20, 5, 10, 0.45);
-    transform: translateY(8px);
-    opacity: 0;
-    animation: rise 0.6s ease forwards;
+      linear-gradient(130deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.02)),
+      linear-gradient(120deg, #2b0d41 0%, #4a1d6c 54%, #6b2f96 100%);
+    box-shadow: 0 16px 44px rgba(19, 6, 29, 0.42);
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 1rem;
+    animation: rise .55s ease both;
+  }
+
+  .hero-kicker {
+    margin: 0;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #dec5f4;
   }
 
   .hero h1 {
-    margin: 0;
-    font-size: clamp(1.9rem, 3.5vw, 2.8rem);
-    line-height: 1.05;
+    margin: 0.35rem 0 0;
+    font-size: clamp(1.8rem, 3.1vw, 2.8rem);
+    line-height: 1.04;
   }
 
   .hero p {
     margin: 0.7rem 0 0;
-    color: #f2e6d5;
+    color: #ecdffb;
   }
 
-  .steps {
+  .trust-row {
+    margin-top: 0.95rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .trust-row span {
+    font-size: 0.78rem;
+    border: 1px solid rgba(234, 211, 252, 0.28);
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    padding: 0.24rem 0.58rem;
+  }
+
+  .hero-stats {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 0.55rem;
+    gap: 0.65rem;
   }
 
-  .step {
-    border: 1px dashed rgba(90, 23, 48, 0.3);
+  .hero-stat {
+    border: 1px solid rgba(233, 217, 249, 0.35);
     border-radius: 12px;
-    padding: 0.55rem;
-    text-align: center;
-    color: #634d3b;
-    background: #fff9f0;
-    font-weight: 600;
+    padding: 0.72rem;
+    background: rgba(255, 255, 255, 0.1);
   }
 
-  .step.active {
-    background: #f8ead3;
-    border-style: solid;
-    color: #784c18;
+  .hero-stat span {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #e9d9f9;
+  }
+
+  .hero-stat strong {
+    margin-top: 0.2rem;
+    display: block;
+    font-size: 1.28rem;
   }
 
   .panel {
-    background: var(--card);
-    border: 1px solid rgba(182, 134, 61, 0.2);
-    border-radius: 20px;
-    padding: 1rem;
     margin-top: 1rem;
-    box-shadow: 0 10px 26px rgba(17, 5, 9, 0.2);
+    background: var(--panel);
+    border: 1px solid rgba(122, 73, 168, 0.2);
+    border-radius: 18px;
+    padding: 1rem;
+    box-shadow: 0 12px 32px rgba(31, 11, 48, 0.2);
   }
 
-  .helper-grid {
+  .search-panel {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.7rem;
+    gap: 0.85rem;
   }
 
-  .helper-card {
-    border: 1px solid rgba(90, 23, 48, 0.2);
-    border-radius: 12px;
-    background: #fff9f2;
-    padding: 0.8rem;
+  .search-panel h2 {
+    margin: 0;
   }
 
-  .helper-card p {
-    margin: 0.35rem 0 0;
-    color: #594737;
-    font-size: 0.9rem;
+  .search-panel p {
+    margin: 0.25rem 0 0;
+    color: #665377;
+    font-size: 0.92rem;
   }
+
+  .panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 0.7rem;
+  }
+
+  .panel-head h2 { margin: 0; }
+
+  .panel-head p {
+    margin: 0;
+    color: #665377;
+    font-size: 0.86rem;
+  }
+
+  #networkMap {
+    width: 100%;
+    height: 390px;
+    border-radius: 14px;
+    border: 1px solid rgba(114, 64, 161, 0.2);
+  }
+
+  .legend {
+    margin-top: 0.7rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    color: #5c4f69;
+    font-size: 0.85rem;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 0.3rem;
+    vertical-align: middle;
+  }
+
+  .dot-air { background: #8b5cc4; }
+  .dot-boarding { background: #d3a24f; }
+  .dot-delayed { background: #f08f3f; }
+  .dot-ground { background: #7e8b93; }
 
   form {
     display: grid;
-    gap: 0.9rem;
+    gap: 0.86rem;
     grid-template-columns: 1fr 1fr auto;
     align-items: end;
   }
 
   label {
-    font-size: 0.9rem;
-    margin-bottom: 0.3rem;
     display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+    color: #4f3f60;
+    font-weight: 600;
   }
 
-  select,
-  button {
+  select, button {
     width: 100%;
     border-radius: 12px;
-    padding: 0.7rem 0.8rem;
+    padding: 0.72rem 0.82rem;
+    font: inherit;
   }
 
   select {
-    border: 1px solid #d3c2a8;
-    background: #fffaf2;
+    border: 1px solid #d5c6e5;
+    background: #fefcff;
+    color: #433550;
   }
 
   button {
-    border: 1px solid #8a5f28;
-    background: linear-gradient(180deg, #d3a45d, #ad7b38);
-    color: #fffaf0;
+    border: 1px solid #9d6f35;
+    background: linear-gradient(180deg, #d8ac62, #b9853a);
+    color: #fff8ef;
     cursor: pointer;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
   }
 
-  .trip {
-    display: grid;
-    grid-template-columns: 1fr auto;
+  .recommendation {
+    color: #4c3b5e;
+    display: flex;
     align-items: center;
-    gap: 0.8rem;
-    margin-top: 0.8rem;
-    padding: 0.85rem;
-    border-radius: 12px;
-    border: 1px solid rgba(90, 23, 48, 0.18);
-    background: #fffdf8;
+    flex-wrap: wrap;
+    gap: 0.4rem;
   }
 
-  .trip strong {
-    color: var(--claret-700);
-  }
-
-  .track-link {
+  .recommendation a {
+    color: #5d2f84;
+    font-weight: 700;
     text-decoration: none;
-    color: #fff7ec;
-    background: linear-gradient(180deg, #531127, #3b0d1b);
-    border-radius: 10px;
-    padding: 0.5rem 0.75rem;
   }
 
   .ai-ribbon {
-    display: inline-block;
+    margin-left: 0.2rem;
+    font-size: 0.74rem;
+    color: #fff8ef;
+    background: linear-gradient(140deg, #8a4fb8, #66308f);
     border-radius: 999px;
-    padding: 0.2rem 0.55rem;
-    background: #f7ead4;
-    border: 1px solid #d9bc88;
-    color: #805314;
-    font-size: 0.75rem;
-    margin-left: 0.4rem;
+    padding: 0.22rem 0.58rem;
   }
 
-  a {
-    color: var(--claret-700);
+  .trip-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
   }
+
+  .trip {
+    border: 1px solid rgba(114, 73, 158, 0.18);
+    border-radius: 14px;
+    padding: 0.8rem;
+    background: linear-gradient(180deg, #fffdfd 0%, #fbf7ff 100%);
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .trip-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .flight-code {
+    color: #5a2f81;
+    text-decoration: none;
+    font-size: 1.04rem;
+  }
+
+  .route-pill {
+    border: 1px solid #ddc7f0;
+    border-radius: 999px;
+    padding: 0.16rem 0.52rem;
+    color: #5f4a6f;
+    background: #f8f0ff;
+    font-size: 0.78rem;
+  }
+
+  .trip-route {
+    color: #4f3f60;
+    font-size: 0.9rem;
+    line-height: 1.32;
+  }
+
+  .trip-time {
+    color: #6b5978;
+    font-size: 0.85rem;
+  }
+
+  .track-link {
+    width: max-content;
+    color: #fdf7ff;
+    text-decoration: none;
+    background: linear-gradient(180deg, #7f46ae, #5b2c85);
+    border-radius: 10px;
+    padding: 0.45rem 0.68rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .plane {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.28);
+  }
+
+  .plane.air { background: #8b5cc4; }
+  .plane.boarding { background: #d3a24f; }
+  .plane.delayed { background: #f08f3f; }
+  .plane.ground { background: #7e8b93; }
 
   @keyframes rise {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
-  @media (max-width: 760px) {
-    form,
-    .steps,
-    .helper-grid {
+  @media (max-width: 980px) {
+    .hero, .hero-stats, form, .trip-grid {
       grid-template-columns: 1fr;
     }
 
-    .trip {
-      grid-template-columns: 1fr;
+    .mast-nav {
+      flex-direction: column;
+      align-items: flex-start;
     }
   }
 </style>
+{% endblock %}
+
+{% block body_extras %}
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+<script>
+  const defaultHubCode = "{{ default_hub_code }}";
+  const fromSelect = document.getElementById("from");
+  const netUpdated = document.getElementById("networkTimestamp");
+  const statVisible = document.getElementById("statVisible");
+  const statInAir = document.getElementById("statInAir");
+  const statBoarding = document.getElementById("statBoarding");
+
+  const map = L.map("networkMap", { zoomControl: true }).setView([20, 20], 2);
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom: 19,
+    attribution: "Tiles &copy; Esri",
+  }).addTo(map);
+
+  const layerByTrip = new Map();
+  let hasFitBounds = false;
+
+  function getSelectedOrigin() {
+    const selected = (fromSelect.value || "").trim().toUpperCase();
+    return selected || defaultHubCode;
+  }
+
+  function statusClass(status) {
+    if (status === "In Air") return "air";
+    if (status === "Boarding") return "boarding";
+    if (status === "Delayed") return "delayed";
+    return "ground";
+  }
+
+  function statusColor(status) {
+    if (status === "In Air") return "#8b5cc4";
+    if (status === "Boarding") return "#d3a24f";
+    if (status === "Delayed") return "#f08f3f";
+    return "#7e8b93";
+  }
+
+  function buildIcon(status) {
+    const klass = statusClass(status);
+    return L.divIcon({
+      html: `<div class="plane ${klass}">✈</div>`,
+      className: "",
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    });
+  }
+
+  function ensureTripLayers(flight) {
+    if (layerByTrip.has(flight.trip_id)) {
+      return layerByTrip.get(flight.trip_id);
+    }
+    const route = L.polyline(
+      [
+        [flight.start_latitude, flight.start_longitude],
+        [flight.end_latitude, flight.end_longitude],
+      ],
+      { color: "#a693ba", weight: 2, opacity: 0.35, dashArray: "4 6" }
+    ).addTo(map);
+
+    const marker = L.marker([flight.latitude, flight.longitude], {
+      icon: buildIcon(flight.status),
+      riseOnHover: true,
+    }).addTo(map);
+
+    const layers = { route, marker };
+    layerByTrip.set(flight.trip_id, layers);
+    return layers;
+  }
+
+  function pruneOldFlights(nextIds) {
+    for (const [tripId, layers] of layerByTrip.entries()) {
+      if (!nextIds.has(tripId)) {
+        map.removeLayer(layers.route);
+        map.removeLayer(layers.marker);
+        layerByTrip.delete(tripId);
+      }
+    }
+  }
+
+  function updateStats(flights) {
+    let inAir = 0;
+    let boarding = 0;
+    for (const f of flights) {
+      if (f.status === "In Air") inAir += 1;
+      if (f.status === "Boarding") boarding += 1;
+    }
+    statVisible.textContent = String(flights.length);
+    statInAir.textContent = String(inAir);
+    statBoarding.textContent = String(boarding);
+  }
+
+  async function refreshNetwork() {
+    const fromCode = getSelectedOrigin();
+    try {
+      const response = await fetch(`/api/network/live/?from=${encodeURIComponent(fromCode)}`);
+      if (!response.ok) return;
+      const payload = await response.json();
+      const flights = payload.flights || [];
+      const ids = new Set();
+      const boundsPoints = [];
+
+      for (const flight of flights) {
+        // Keep map layers stable across polls for smoother visual updates.
+        ids.add(flight.trip_id);
+        const layers = ensureTripLayers(flight);
+        const markerColor = statusColor(flight.status);
+
+        layers.marker.setIcon(buildIcon(flight.status));
+        layers.marker.setLatLng([flight.latitude, flight.longitude]);
+        layers.route.setStyle({ color: markerColor, opacity: 0.4 });
+        layers.marker.bindPopup(
+          `<strong>${flight.flight_code}</strong><br>` +
+          `${flight.from_name} (${flight.from_code}) - ${flight.from_city}, ${flight.from_country}<br>` +
+          `to ${flight.to_name} (${flight.to_code}) - ${flight.to_city}, ${flight.to_country}<br>` +
+          `Status: ${flight.status}<br>` +
+          `Altitude: ${flight.altitude_ft} ft<br>` +
+          `Delay: ${flight.delay_minutes || 0} min`
+        );
+
+        boundsPoints.push([flight.start_latitude, flight.start_longitude]);
+        boundsPoints.push([flight.end_latitude, flight.end_longitude]);
+      }
+
+      pruneOldFlights(ids);
+      updateStats(flights);
+
+      if (!hasFitBounds && boundsPoints.length > 1) {
+        map.fitBounds(L.latLngBounds(boundsPoints), { padding: [25, 25] });
+        hasFitBounds = true;
+      }
+
+      const refreshedAt = payload.updated_at ? new Date(payload.updated_at) : new Date();
+      netUpdated.textContent = `Hub ${payload.hub_code} · Updated ${refreshedAt.toLocaleTimeString()}`;
+    } catch (error) {
+      netUpdated.textContent = "Map update paused. Retrying...";
+    }
+  }
+
+  fromSelect.addEventListener("change", () => {
+    hasFitBounds = false;
+    refreshNetwork();
+  });
+
+  refreshNetwork();
+  setInterval(refreshNetwork, 15000);
+</script>
 {% endblock %}

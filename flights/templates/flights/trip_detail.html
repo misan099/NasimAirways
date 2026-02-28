@@ -13,42 +13,134 @@
 
 {% block content %}
 <main class="wrap">
+  <header class="topnav">
+    <a class="brandmark" href="/" aria-label="NASIM Airways home">
+      <span>NASIM</span>
+      <small>AIRWAYS</small>
+    </a>
+    <nav class="top-links">
+      <a href="#book">Book</a>
+      {% if request.user.is_authenticated and not request.user.is_staff %}
+      <a href="/my-trips/">My Trips</a>
+      <a href="/signout/">Sign out</a>
+      {% else %}
+      <a href="/signin/?next=/trip/{{ trip.id }}/">Sign in</a>
+      {% endif %}
+      <a href="/ops-signin/">Admin sign in</a>
+    </nav>
+  </header>
+
   <section class="masthead">
-    <h1>{{ trip.flight.flight_code }} Journey Center</h1>
-    <p>{{ trip.flight.route.from_airport.code }} -> {{ trip.flight.route.to_airport.code }}</p>
+    <p class="kicker">Booking Center</p>
+    <h1>{{ trip.flight.flight_code }} Passenger Journey</h1>
+    <p>
+      {{ trip.flight.route.from_airport.name }} ({{ trip.flight.route.from_airport.code }}) -
+      {{ trip.flight.route.from_airport.city }}, {{ trip.flight.route.from_airport.country }}
+      to
+      {{ trip.flight.route.to_airport.name }} ({{ trip.flight.route.to_airport.code }}) -
+      {{ trip.flight.route.to_airport.city }}, {{ trip.flight.route.to_airport.country }}
+    </p>
   </section>
+
+  {% if messages %}
+  <section class="alerts">
+    {% for message in messages %}
+    <div class="alert {{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  </section>
+  {% endif %}
 
   <section class="flow card">
     <div class="flow-step done">Search</div>
-    <div class="flow-step active">Track and support</div>
-    <div class="flow-step">Arrive</div>
+    <div class="flow-step active">Book</div>
+    <div class="flow-step">Track Near Departure</div>
   </section>
 
-  <section class="grid">
-    <article class="card">
-      <h2>Your flight timeline</h2>
-      <p><strong>Route:</strong> {{ trip.flight.route }}</p>
-      <p><strong>Departure:</strong> {{ trip.depart_at }}</p>
-      <p><strong>Arrival:</strong> {{ trip.arrive_at }}</p>
+  <section class="grid" id="book">
+    <article class="card booking-card">
+      <h2>Flight timeline</h2>
+      <div class="schedule-grid">
+        <div>
+          <p class="sub">Scheduled Departure</p>
+          <strong>{{ trip.depart_at }} UTC</strong>
+        </div>
+        <div>
+          <p class="sub">Scheduled Arrival</p>
+          <strong>{{ trip.arrive_at }} UTC</strong>
+        </div>
+      </div>
 
-      <h3>Live progress</h3>
-      <div class="progress"><span id="progressFill"></span></div>
-      <p><span id="progressValue">0</span>% complete</p>
+      {% if trip.delay_minutes > 0 %}
+      <p class="warning delay-pill">
+        Delay: {{ trip.delay_minutes }} minutes{% if trip.delay_note %} ({{ trip.delay_note }}){% endif %}
+      </p>
+      {% endif %}
 
-      <h3>Live map</h3>
-      <div id="liveMap"></div>
-      <p>
-        <strong>Position:</strong>
-        <span id="coordValue">Loading...</span>
-      </p>
-      <p>
-        <strong>Altitude / Speed:</strong>
-        <span id="flightMetricValue">--</span>
-      </p>
+      {% if booking %}
+      <div class="booking-ok">
+        <strong>Booking confirmed</strong><br />
+        Reference: <code>{{ booking.reference }}</code><br />
+        Passenger: {{ booking.passenger_name }} ({{ booking.passenger_email }})
+        {% if booking.passenger_phone %}<br />SMS phone: {{ booking.passenger_phone }}{% endif %}
+      </div>
+      {% elif not booking_allowed %}
+      <div class="locked-box">
+        Passenger booking requires sign in.
+        <a href="/signin/?next=/trip/{{ trip.id }}/">Sign in</a>
+        or
+        <a href="/signup/?next=/trip/{{ trip.id }}/">create an account</a>.
+      </div>
+      {% else %}
+      <p class="helper-text">Book first to enable private flight tracking.</p>
+      <form method="post" action="/trip/{{ trip.id }}/book/" class="booking-form">
+        {% csrf_token %}
+        <label for="id_passenger_name">Passenger name</label>
+        {{ booking_form.passenger_name }}
+        {% if booking_form.passenger_name.errors %}
+        <span class="error">{{ booking_form.passenger_name.errors|striptags }}</span>
+        {% endif %}
+
+        <label for="id_passenger_email">Passenger email</label>
+        {{ booking_form.passenger_email }}
+        {% if booking_form.passenger_email.errors %}
+        <span class="error">{{ booking_form.passenger_email.errors|striptags }}</span>
+        {% endif %}
+
+        <label for="id_passenger_phone">Phone for SMS updates (optional)</label>
+        {{ booking_form.passenger_phone }}
+        {% if booking_form.passenger_phone.errors %}
+        <span class="error">{{ booking_form.passenger_phone.errors|striptags }}</span>
+        {% endif %}
+
+        <label for="id_seats">Seats</label>
+        {{ booking_form.seats }}
+        {% if booking_form.seats.errors %}
+        <span class="error">{{ booking_form.seats.errors|striptags }}</span>
+        {% endif %}
+
+        <button type="submit">Confirm booking</button>
+      </form>
+      {% endif %}
     </article>
 
-    <article class="card">
-      <h2>Operations insight</h2>
+    <article class="card insight-card">
+      <h2>Tracking access</h2>
+      <p class="subhead">Operations insight</p>
+      {% if booking %}
+      <p><strong>Booking ref:</strong> <code>{{ booking.reference }}</code></p>
+      {% elif booking_ref %}
+      <p class="warning">Booking reference <code>{{ booking_ref }}</code> is not valid for this trip.</p>
+      {% else %}
+      <p class="warning">Tracking needs a confirmed booking reference.</p>
+      {% endif %}
+
+      {% if tracking_open %}
+      <p class="ok">Tracking window is open.</p>
+      {% else %}
+      <p class="warning">Tracking opens {{ tracking_unlock_minutes }} minutes before takeoff.</p>
+      <p><strong>Available at:</strong> {{ tracking_opens_at }}</p>
+      {% endif %}
+
       <div class="stats">
         <div class="stat">
           <div class="label">Status</div>
@@ -67,9 +159,24 @@
           <div class="value">{{ ai.risk_level }}</div>
         </div>
       </div>
-      <p><strong>Recommendation:</strong> {{ ai.recommendation }}</p>
-      <p><strong>Travel assistant:</strong> <span id="aiMessage">Loading...</span></p>
+      <p class="recommend"><strong>Recommendation:</strong> {{ ai.recommendation }}</p>
     </article>
+  </section>
+
+  <section class="card map-card">
+    <h3>Live progress</h3>
+    {% if can_track %}
+    <div class="progress"><span id="progressFill"></span></div>
+    <p><span id="progressValue">0</span>% complete</p>
+    <div id="liveMap"></div>
+    <p><strong>Position:</strong> <span id="coordValue">Loading...</span></p>
+    <p><strong>Altitude / Speed:</strong> <span id="flightMetricValue">--</span></p>
+    <p><strong>Travel assistant:</strong> <span id="aiMessage">Loading...</span></p>
+    {% else %}
+    <div class="locked-box">
+      Live map is locked until booking + tracking window requirements are met.
+    </div>
+    {% endif %}
   </section>
 
   <div class="cta">
@@ -79,55 +186,110 @@
 
 <style>
   :root {
-    --claret-950: #18040b;
-    --claret-900: #2a0813;
-    --claret-800: #4d1125;
-    --gold-400: #c7954a;
-    --sand-100: #f5efe4;
-    --panel: rgba(255, 250, 242, 0.95);
-    --ink: #2c2016;
+    --plum-950: #1a0726;
+    --plum-900: #2a0c3f;
+    --plum-800: #3b1458;
+    --violet-500: #7d43ad;
+    --gold-500: #d3a24f;
+    --gold-400: #e1ba72;
+    --panel: rgba(255, 255, 255, 0.96);
+    --ink: #2f2238;
+    --ok: #2f7a54;
+    --warn: #9b620e;
   }
 
-  * {
-    box-sizing: border-box;
-  }
+  * { box-sizing: border-box; }
 
   body {
     margin: 0;
     color: var(--ink);
-    font-family: "Optima", "Palatino Linotype", serif;
+    font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
     background:
-      radial-gradient(1100px 540px at 95% 0%, rgba(199, 149, 74, 0.17), transparent 58%),
-      radial-gradient(800px 500px at 0% 0%, rgba(77, 17, 37, 0.18), transparent 55%),
-      linear-gradient(145deg, #17030a, #3c0e1f 45%, #5c1931);
+      radial-gradient(900px 480px at 0% -8%, rgba(154, 100, 197, 0.22), transparent 58%),
+      radial-gradient(900px 520px at 100% 0%, rgba(225, 186, 114, 0.16), transparent 56%),
+      linear-gradient(158deg, #190729 0%, #2b0d41 46%, #3d1560 100%);
     min-height: 100vh;
   }
 
   .wrap {
-    max-width: 1100px;
+    max-width: 1140px;
     margin: 0 auto;
     padding: 1.2rem 1rem 6rem;
   }
 
+  .topnav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.9rem;
+    gap: 0.6rem;
+  }
+
+  .brandmark {
+    color: #f9f2ff;
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .brandmark small {
+    color: #ecdaf9;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .top-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .top-links a {
+    color: #f7e9ff;
+    text-decoration: none;
+    border: 1px solid rgba(234, 210, 250, 0.35);
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    padding: 0.34rem 0.72rem;
+    font-size: 0.82rem;
+  }
+
   .masthead {
     border-radius: 24px;
+    color: #f7f1ff;
+    padding: 1.5rem;
     background:
-      linear-gradient(120deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03)),
-      linear-gradient(130deg, #280910 0%, #5a162d 56%, #7a2846 100%);
-    color: var(--sand-100);
-    padding: 1.45rem;
-    box-shadow: 0 16px 42px rgba(16, 3, 8, 0.45);
+      linear-gradient(120deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03)),
+      linear-gradient(128deg, #2b0d41 0%, #4a1d6c 55%, #6b2f96 100%);
+    box-shadow: 0 16px 42px rgba(19, 6, 29, 0.42);
+  }
+
+  .kicker {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.72rem;
+    color: #dfc8f4;
   }
 
   .masthead h1 {
-    margin: 0;
-    font-size: clamp(1.8rem, 3.3vw, 2.7rem);
+    margin: 0.35rem 0 0;
+    font-size: clamp(1.8rem, 3.2vw, 2.7rem);
+    line-height: 1.05;
   }
 
   .masthead p {
-    margin: 0.45rem 0 0;
-    color: #f4e8d7;
+    margin: 0.6rem 0 0;
+    color: #ecddfb;
   }
+
+  .alerts { margin-top: 1rem; display: grid; gap: 0.5rem; }
+  .alert { border-radius: 10px; padding: 0.62rem 0.72rem; font-weight: 600; }
+  .alert.success { background: #e7f8ee; color: #1f6c49; border: 1px solid #b8e7cb; }
+  .alert.error { background: #fce8e8; color: #8f2a2a; border: 1px solid #f4bcbc; }
 
   .flow {
     display: grid;
@@ -138,23 +300,16 @@
 
   .flow-step {
     border-radius: 12px;
-    border: 1px dashed rgba(77, 17, 37, 0.3);
+    border: 1px dashed rgba(118, 72, 164, 0.3);
     padding: 0.55rem;
     text-align: center;
     font-weight: 600;
-    background: #fff9f0;
+    background: #fcf8ff;
+    color: #5a4671;
   }
 
-  .flow-step.active {
-    border-style: solid;
-    background: #f8ead3;
-  }
-
-  .flow-step.done {
-    border-style: solid;
-    background: #f4e7d1;
-    color: #5a492f;
-  }
+  .flow-step.active { border-style: solid; background: #f5ecff; }
+  .flow-step.done { border-style: solid; background: #f8f1ff; color: #5a4671; }
 
   .grid {
     display: grid;
@@ -166,57 +321,123 @@
   .card {
     background: var(--panel);
     border-radius: 18px;
-    border: 1px solid rgba(172, 120, 54, 0.25);
+    border: 1px solid rgba(124, 78, 170, 0.2);
     padding: 1rem;
-    box-shadow: 0 12px 24px rgba(20, 6, 10, 0.22);
-    animation: reveal 0.6s ease both;
+    box-shadow: 0 12px 28px rgba(31, 11, 48, 0.2);
   }
 
-  #liveMap {
-    width: 100%;
-    height: 320px;
-    border-radius: 14px;
-    border: 1px solid rgba(77, 17, 37, 0.2);
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
   }
 
-  .plane-icon {
-    font-size: 22px;
-    text-shadow: 0 4px 9px rgba(0, 0, 0, 0.35);
+  .sub {
+    margin: 0;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b5979;
+  }
+
+  .delay-pill {
+    margin-top: 0.7rem;
+    border: 1px solid #efcf9c;
+    background: #fff4df;
+    border-radius: 10px;
+    padding: 0.48rem 0.6rem;
+    width: max-content;
+  }
+
+  .helper-text { color: #6f5b7f; }
+
+  .booking-form {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .booking-form label {
+    font-weight: 600;
+    color: #5b4771;
+  }
+
+  .booking-form input {
+    border: 1px solid #dbc8ec;
+    border-radius: 8px;
+    padding: 0.58rem;
+    font: inherit;
+    background: #fefbff;
+  }
+
+  .booking-form button {
+    border: 1px solid #9d6f35;
+    border-radius: 9px;
+    background: linear-gradient(180deg, #d8ac62, #b9853a);
+    color: #fff8ef;
+    padding: 0.56rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .error { color: #922b2b; font-size: 0.84rem; }
+
+  .booking-ok {
+    background: #f4ecfb;
+    border: 1px solid #dcc6ee;
+    border-radius: 10px;
+    padding: 0.72rem;
+  }
+
+  .warning { color: var(--warn); }
+  .ok { color: var(--ok); }
+
+  .subhead {
+    margin: 0;
+    color: #6f5c7f;
   }
 
   .stats {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.6rem;
-    margin-top: 0.6rem;
+    gap: 0.62rem;
+    margin-top: 0.65rem;
   }
 
   .stat {
     border-radius: 12px;
-    padding: 0.6rem;
-    background: #fffcf7;
-    border: 1px solid rgba(77, 17, 37, 0.17);
+    padding: 0.64rem;
+    background: #fefbff;
+    border: 1px solid rgba(126, 81, 172, 0.17);
   }
 
   .label {
-    font-size: 0.8rem;
-    color: #6d5847;
+    font-size: 0.78rem;
+    color: #6e5a7d;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
 
   .value {
     margin-top: 0.2rem;
-    font-size: 1.2rem;
-    color: var(--claret-800);
+    font-size: 1.15rem;
+    color: #6b2f96;
     font-weight: 700;
   }
+
+  .recommend {
+    margin-top: 0.8rem;
+    color: #5f4d70;
+  }
+
+  .map-card { margin-top: 1rem; }
 
   .progress {
     width: 100%;
     height: 12px;
     border-radius: 999px;
-    background: #d7cab7;
+    background: #ecdef9;
     overflow: hidden;
   }
 
@@ -224,75 +445,84 @@
     display: block;
     width: 0;
     height: 100%;
-    background: linear-gradient(90deg, #ce9d53, #af7b38);
+    background: linear-gradient(90deg, #9a64c5, #6b2f96);
     transition: width 0.35s ease;
   }
 
-  .cta {
-    margin-top: 1rem;
+  #liveMap {
+    width: 100%;
+    height: 330px;
+    border-radius: 14px;
+    border: 1px solid rgba(126, 84, 174, 0.2);
   }
+
+  .plane-icon {
+    font-size: 22px;
+    text-shadow: 0 4px 9px rgba(0, 0, 0, 0.35);
+  }
+
+  .locked-box {
+    border: 1px dashed #cfb2ea;
+    border-radius: 12px;
+    padding: 1rem;
+    background: #f6eefc;
+    color: #5d4a6f;
+  }
+
+  .cta { margin-top: 1rem; }
 
   .back {
     text-decoration: none;
-    color: #fffaf0;
+    color: #fff8ef;
     padding: 0.55rem 0.85rem;
     border-radius: 10px;
-    background: linear-gradient(180deg, #531127, #3b0d1b);
+    background: linear-gradient(180deg, #d8ac62, #b9853a);
   }
 
-  @keyframes reveal {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @media (max-width: 860px) {
+  @media (max-width: 900px) {
     .grid,
-    .flow {
+    .flow,
+    .schedule-grid {
       grid-template-columns: 1fr;
+    }
+
+    .topnav {
+      flex-direction: column;
+      align-items: flex-start;
     }
   }
 </style>
 {% endblock %}
 
 {% block body_extras %}
+{% if can_track %}
 <script
   src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
   integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
   crossorigin=""
 ></script>
 <script>
-  const statusUrl = "/api/trip/{{ trip.id }}/status/";
-  const aiUrl = "/api/trip/{{ trip.id }}/ai/";
-  const positionUrl = "/api/trip/{{ trip.id }}/position/";
+  const bookingRef = "{{ booking.reference|default:'' }}";
+  const statusUrl = `/api/trip/{{ trip.id }}/status/?ref=${encodeURIComponent(bookingRef)}`;
+  const aiUrl = `/api/trip/{{ trip.id }}/ai/?ref=${encodeURIComponent(bookingRef)}`;
+  const positionUrl = `/api/trip/{{ trip.id }}/position/?ref=${encodeURIComponent(bookingRef)}`;
 
   const map = L.map("liveMap", { zoomControl: true }).setView([25.2861, 51.5348], 3);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
     maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors",
+    attribution: "Tiles &copy; Esri",
   }).addTo(map);
 
-  const planeIcon = L.divIcon({
-    html: "✈",
-    className: "plane-icon",
-    iconSize: [22, 22],
-  });
+  const planeIcon = L.divIcon({ html: "✈", className: "plane-icon", iconSize: [22, 22] });
   const planeMarker = L.marker([25.2861, 51.5348], { icon: planeIcon }).addTo(map);
-  const routeLine = L.polyline([], { color: "#7a2846", weight: 3, opacity: 0.45, dashArray: "6 8" }).addTo(map);
-  const progressLine = L.polyline([], { color: "#ce9d53", weight: 4, opacity: 0.95 }).addTo(map);
+  const routeLine = L.polyline([], { color: "#6b2f96", weight: 3, opacity: 0.45, dashArray: "6 8" }).addTo(map);
+  const progressLine = L.polyline([], { color: "#9a64c5", weight: 4, opacity: 0.95 }).addTo(map);
   const airportPins = L.featureGroup().addTo(map);
 
   let flightState = null;
   let syncClientMs = Date.now();
 
-  function clamp(value, min, max) {
-    return Math.min(max, Math.max(min, value));
-  }
+  function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
 
   function buildArcPoints(start, end, points = 64) {
     const generated = [];
@@ -307,9 +537,10 @@
 
   function pointAtProgress(start, end, t) {
     const safeT = clamp(t, 0, 1);
-    const lat = start[0] + (end[0] - start[0]) * safeT + Math.sin(safeT * Math.PI) * 1.5;
-    const lon = start[1] + (end[1] - start[1]) * safeT;
-    return [lat, lon];
+    return [
+      start[0] + (end[0] - start[0]) * safeT + Math.sin(safeT * Math.PI) * 1.5,
+      start[1] + (end[1] - start[1]) * safeT,
+    ];
   }
 
   function progressFromClock() {
@@ -321,26 +552,16 @@
   }
 
   function renderPlane() {
-    if (!flightState) {
-      requestAnimationFrame(renderPlane);
-      return;
-    }
-
+    if (!flightState) return requestAnimationFrame(renderPlane);
     const progress = progressFromClock();
     const pos = pointAtProgress(flightState.start, flightState.end, progress);
 
     planeMarker.setLatLng(pos);
-    planeMarker.bindPopup(
-      `${flightState.flightCode}<br>${Math.round(progress * 100)}% complete`
-    );
-
-    const traveled = buildArcPoints(flightState.start, flightState.end, Math.max(2, Math.round(progress * 64)));
-    progressLine.setLatLngs(traveled);
-
+    planeMarker.bindPopup(`${flightState.flightCode}<br>${Math.round(progress * 100)}% complete`);
+    progressLine.setLatLngs(buildArcPoints(flightState.start, flightState.end, Math.max(2, Math.round(progress * 64))));
     document.getElementById("progressValue").textContent = Math.round(progress * 100);
     document.getElementById("progressFill").style.width = `${Math.round(progress * 100)}%`;
     document.getElementById("coordValue").textContent = `${pos[0].toFixed(4)}, ${pos[1].toFixed(4)}`;
-
     requestAnimationFrame(renderPlane);
   }
 
@@ -350,9 +571,7 @@
       if (!response.ok) return;
       const data = await response.json();
       document.getElementById("statusValue").textContent = data.status;
-    } catch (e) {
-      // Keep UI stable if polling fails.
-    }
+    } catch (e) {}
   }
 
   async function refreshAiMessage() {
@@ -371,23 +590,22 @@
       const response = await fetch(positionUrl);
       if (!response.ok) return;
       const data = await response.json();
-
       const start = [data.start_latitude, data.start_longitude];
       const end = [data.end_latitude, data.end_longitude];
-      const arc = buildArcPoints(start, end);
-      routeLine.setLatLngs(arc);
+      routeLine.setLatLngs(buildArcPoints(start, end));
 
       if (!flightState) {
         airportPins.clearLayers();
-        L.circleMarker(start, { radius: 6, color: "#4f0f24", fillColor: "#4f0f24", fillOpacity: 1 })
-          .bindPopup(`Departure: ${data.from_code}`)
+        L.circleMarker(start, { radius: 6, color: "#6b2f96", fillColor: "#6b2f96", fillOpacity: 1 })
+          .bindPopup(`Departure: ${data.from_name} (${data.from_code})`)
           .addTo(airportPins);
-        L.circleMarker(end, { radius: 6, color: "#ad7b38", fillColor: "#ad7b38", fillOpacity: 1 })
-          .bindPopup(`Arrival: ${data.to_code}`)
+        L.circleMarker(end, { radius: 6, color: "#d3a24f", fillColor: "#d3a24f", fillOpacity: 1 })
+          .bindPopup(`Arrival: ${data.to_name} (${data.to_code})`)
           .addTo(airportPins);
         map.fitBounds(L.latLngBounds([start, end]), { padding: [30, 30] });
       }
 
+      // Keep server time and browser animation in sync for smooth movement.
       flightState = {
         start,
         end,
@@ -397,8 +615,8 @@
         flightCode: data.flight_code,
       };
       syncClientMs = Date.now();
-
-      document.getElementById("flightMetricValue").textContent = `${data.altitude_ft} ft / ${data.ground_speed_kts} kts`;
+      const delayValue = data.delay_minutes ? ` / Delayed ${data.delay_minutes} min` : "";
+      document.getElementById("flightMetricValue").textContent = `${data.altitude_ft} ft / ${data.ground_speed_kts} kts${delayValue}`;
     } catch (e) {
       document.getElementById("coordValue").textContent = "Location unavailable right now.";
     }
@@ -412,4 +630,5 @@
   setInterval(refreshAiMessage, 60000);
   setInterval(refreshPosition, 30000);
 </script>
+{% endif %}
 {% endblock %}
