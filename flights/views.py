@@ -131,6 +131,43 @@ def _progress_percent(trip, now=None):
     return int((elapsed_seconds / total_seconds) * 100)
 
 
+def _clamp(value, min_value, max_value):
+    return max(min_value, min(value, max_value))
+
+
+def _smooth_progress(progress):
+    """Ease motion so the aircraft accelerates and settles more naturally."""
+    clamped = _clamp(progress, 0.0, 1.0)
+    return clamped * clamped * (3 - 2 * clamped)
+
+
+def _arc_height(start_lat, start_lon, end_lat, end_lon):
+    route_span = math.hypot(end_lat - start_lat, end_lon - start_lon)
+    return _clamp(route_span * 0.18, 0.35, 4.0)
+
+
+def _route_point(start_lat, start_lon, end_lat, end_lon, progress):
+    """Interpolate along a soft curved route instead of a rigid straight line."""
+    eased_progress = _smooth_progress(progress)
+    base_lat = start_lat + (end_lat - start_lat) * eased_progress
+    base_lon = start_lon + (end_lon - start_lon) * eased_progress
+
+    delta_lat = end_lat - start_lat
+    delta_lon = end_lon - start_lon
+    span = math.hypot(delta_lat, delta_lon)
+    if span == 0:
+        return base_lat, base_lon
+
+    arc_strength = math.sin(progress * math.pi) * _arc_height(start_lat, start_lon, end_lat, end_lon)
+    direction = 1 if delta_lon >= 0 else -1
+    perpendicular_lat = (-delta_lon / span) * direction
+    perpendicular_lon = (delta_lat / span) * direction
+
+    curved_lat = base_lat + perpendicular_lat * arc_strength
+    curved_lon = base_lon + perpendicular_lon * arc_strength
+    return curved_lat, curved_lon
+
+
 def _build_fallback_ai_message(trip):
     ai = _ai_insights(trip)
     route = f"{trip.flight.route.from_airport.code}->{trip.flight.route.to_airport.code}"
@@ -169,19 +206,15 @@ def _live_position_for_trip(trip, now=None):
     progress = _progress_percent(trip, now) / 100.0
     status = _status_for_trip(trip, now)
 
-    lat = start_lat + (end_lat - start_lat) * progress
-    lon = start_lon + (end_lon - start_lon) * progress
-
-    # Add a soft "arc" during flight so movement feels more natural on the map.
-    if status == "In Air":
-        lat += math.sin(progress * math.pi) * 1.5
+    lat, lon = _route_point(start_lat, start_lon, end_lat, end_lon, progress)
 
     if status in ("Scheduled", "Boarding"):
         altitude_ft = 0
         ground_speed_kts = 0
     elif status == "In Air":
-        altitude_ft = int(38000 * math.sin(progress * math.pi))
-        ground_speed_kts = 460 + int(40 * math.sin(progress * math.pi))
+        cruise_profile = math.sin(progress * math.pi)
+        altitude_ft = int(38000 * cruise_profile)
+        ground_speed_kts = 430 + int(55 * cruise_profile)
     else:
         altitude_ft = 0
         ground_speed_kts = 0

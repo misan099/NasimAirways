@@ -6,6 +6,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from .models import Airport, Booking, Flight, Route, SupportTicket, Trip
+from .views import _live_position_for_trip
 
 
 class TripViewsTests(TestCase):
@@ -96,6 +97,37 @@ class TripViewsTests(TestCase):
         self.assertIn("end_latitude", data)
         self.assertIn("from_name", data)
         self.assertIn("to_name", data)
+
+    def test_live_position_uses_curved_route_instead_of_straight_line(self):
+        now = timezone.now()
+        trip = Trip.objects.create(
+            flight=self.flight,
+            depart_at=now - timedelta(minutes=60),
+            arrive_at=now + timedelta(minutes=60),
+        )
+
+        data = _live_position_for_trip(trip, now)
+        linear_mid_lon = round((data["start_longitude"] + data["end_longitude"]) / 2, 5)
+
+        self.assertEqual(data["status"], "In Air")
+        self.assertEqual(data["progress_percent"], 50)
+        self.assertNotEqual(data["longitude"], linear_mid_lon)
+        self.assertGreater(data["altitude_ft"], 0)
+
+    def test_live_position_stays_at_origin_before_departure(self):
+        now = timezone.now()
+        trip = Trip.objects.create(
+            flight=self.flight,
+            depart_at=now + timedelta(minutes=90),
+            arrive_at=now + timedelta(minutes=180),
+        )
+
+        data = _live_position_for_trip(trip, now)
+
+        self.assertEqual(data["status"], "Scheduled")
+        self.assertEqual(data["latitude"], data["start_latitude"])
+        self.assertEqual(data["longitude"], data["start_longitude"])
+        self.assertEqual(data["altitude_ft"], 0)
 
     def test_live_network_api_returns_flights_from_selected_origin(self):
         trip = self._create_trip(-10, 120)

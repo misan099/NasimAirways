@@ -524,23 +524,49 @@
 
   function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
 
+  function smoothProgress(value) {
+    const safe = clamp(value, 0, 1);
+    return safe * safe * (3 - 2 * safe);
+  }
+
+  function arcHeight(start, end) {
+    const latDelta = end[0] - start[0];
+    const lonDelta = end[1] - start[1];
+    const span = Math.hypot(latDelta, lonDelta);
+    return clamp(span * 0.18, 0.35, 4);
+  }
+
+  function routePoint(start, end, t) {
+    const safeT = clamp(t, 0, 1);
+    const easedT = smoothProgress(safeT);
+    const latDelta = end[0] - start[0];
+    const lonDelta = end[1] - start[1];
+    const span = Math.hypot(latDelta, lonDelta);
+    const baseLat = start[0] + latDelta * easedT;
+    const baseLon = start[1] + lonDelta * easedT;
+
+    if (!span) return [baseLat, baseLon];
+
+    const arcStrength = Math.sin(safeT * Math.PI) * arcHeight(start, end);
+    const direction = lonDelta >= 0 ? 1 : -1;
+    const perpendicularLat = (-lonDelta / span) * direction;
+    const perpendicularLon = (latDelta / span) * direction;
+    return [
+      baseLat + perpendicularLat * arcStrength,
+      baseLon + perpendicularLon * arcStrength,
+    ];
+  }
+
   function buildArcPoints(start, end, points = 64) {
     const generated = [];
     for (let i = 0; i <= points; i += 1) {
-      const t = i / points;
-      const lat = start[0] + (end[0] - start[0]) * t + Math.sin(t * Math.PI) * 1.5;
-      const lon = start[1] + (end[1] - start[1]) * t;
-      generated.push([lat, lon]);
+      generated.push(routePoint(start, end, i / points));
     }
     return generated;
   }
 
   function pointAtProgress(start, end, t) {
-    const safeT = clamp(t, 0, 1);
-    return [
-      start[0] + (end[0] - start[0]) * safeT + Math.sin(safeT * Math.PI) * 1.5,
-      start[1] + (end[1] - start[1]) * safeT,
-    ];
+    return routePoint(start, end, t);
   }
 
   function progressFromClock() {

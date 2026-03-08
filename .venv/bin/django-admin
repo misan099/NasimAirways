@@ -1,4 +1,4 @@
-#!/Users/misanrijal/AeroTrack/.venv/bin/python3
+#!/Users/misanrijal/Desktop/PROJECT/AeroTrack/.venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

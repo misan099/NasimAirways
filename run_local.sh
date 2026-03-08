@@ -4,14 +4,18 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-if [ ! -d ".venv" ]; then
+if [ ! -x ".venv/bin/python3" ]; then
   python3 -m venv .venv
 fi
 
-source .venv/bin/activate
+if [ ! -x ".venv/bin/pip" ] || ! .venv/bin/pip --version >/dev/null 2>&1; then
+  rm -rf .venv
+  python3 -m venv .venv
+fi
 
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+VENV_PYTHON=".venv/bin/python3"
+
+"$VENV_PYTHON" -m pip install --disable-pip-version-check -r requirements.txt
 
 if [ -f ".env" ]; then
   set -a
@@ -20,5 +24,5 @@ if [ -f ".env" ]; then
   set +a
 fi
 
-python manage.py migrate
-python manage.py runserver 127.0.0.1:8000
+"$VENV_PYTHON" manage.py migrate
+"$VENV_PYTHON" manage.py runserver 127.0.0.1:8000
