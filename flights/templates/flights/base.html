@@ -19,6 +19,12 @@
         cursor: pointer;
         background: linear-gradient(180deg, #6a2c91, #42155f);
         box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .chat-fab:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(0, 0, 0, 0.3);
       }
 
       .chat-box {
@@ -45,6 +51,13 @@
         padding: 0.75rem 0.9rem;
       }
 
+      .chat-head-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+
       .chat-head h3 {
         margin: 0;
         font-size: 1rem;
@@ -56,6 +69,14 @@
         opacity: 0.95;
       }
 
+      .chat-status {
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 999px;
+        padding: 0.2rem 0.48rem;
+        font-size: 0.72rem;
+        background: rgba(255, 255, 255, 0.12);
+      }
+
       .chat-log {
         max-height: 220px;
         overflow-y: auto;
@@ -63,12 +84,35 @@
         background: #fffcf8;
       }
 
+      .chat-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.6rem;
+        padding: 0.55rem 0.7rem 0.15rem;
+        background: #fff7ec;
+        border-top: 1px solid #f2e7d7;
+        color: #6d5641;
+        font-size: 0.76rem;
+      }
+
+      .chat-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.28rem;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid #dec7a5;
+        color: #59267b;
+        padding: 0.15rem 0.5rem;
+        font-weight: 700;
+      }
+
       .quick-prompts {
         display: flex;
         flex-wrap: wrap;
         gap: 0.45rem;
         padding: 0.65rem 0.7rem 0.2rem;
-        border-top: 1px solid #f2e7d7;
         background: #fff7ec;
       }
 
@@ -139,6 +183,28 @@
         color: #6b5645;
         font-size: 0.78rem;
       }
+
+      .chat-typing {
+        display: inline-flex;
+        gap: 0.26rem;
+        align-items: center;
+      }
+
+      .chat-typing span {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #8b64a7;
+        animation: chat-pulse 1s infinite ease-in-out;
+      }
+
+      .chat-typing span:nth-child(2) { animation-delay: 0.15s; }
+      .chat-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+      @keyframes chat-pulse {
+        0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
+        40% { transform: translateY(-3px); opacity: 1; }
+      }
     </style>
   </head>
   <body>
@@ -147,10 +213,19 @@
     <button id="chatFab" class="chat-fab" type="button">Chat with us</button>
     <aside id="chatBox" class="chat-box" aria-label="Chat support">
       <div class="chat-head">
-        <h3>NASIM Guest Care</h3>
-        <p>Live help for booking, check-in, and refund questions.</p>
+        <div class="chat-head-top">
+          <div>
+            <h3>NASIM Guest Care</h3>
+            <p>Live help for booking, check-in, and refund questions.</p>
+          </div>
+          <span class="chat-status">Online now</span>
+        </div>
       </div>
       <div id="chatLog" class="chat-log"></div>
+      <div class="chat-meta">
+        <span>Smart assistant with human handoff</span>
+        <span id="chatSourceBadge" class="chat-badge">Rule assist</span>
+      </div>
       <div class="quick-prompts">
         <button class="quick-prompt" type="button" data-prompt="When does check-in open?">Check-in time</button>
         <button class="quick-prompt" type="button" data-prompt="What is the baggage allowance?">Baggage rules</button>
@@ -180,7 +255,9 @@
       const chatName = document.getElementById("chatName");
       const chatEmail = document.getElementById("chatEmail");
       const chatMessage = document.getElementById("chatMessage");
+      const chatSourceBadge = document.getElementById("chatSourceBadge");
       const quickPrompts = document.querySelectorAll(".quick-prompt");
+      let typingRow = null;
 
       function appendChat(text, role = "bot") {
         const row = document.createElement("div");
@@ -193,6 +270,33 @@
         row.appendChild(bubble);
         chatLog.appendChild(row);
         chatLog.scrollTop = chatLog.scrollHeight;
+      }
+
+      function setChatSource(source, escalated = false) {
+        if (escalated) {
+          chatSourceBadge.textContent = "Human follow-up";
+          return;
+        }
+        if (source === "openai") {
+          chatSourceBadge.textContent = "AI assist";
+          return;
+        }
+        chatSourceBadge.textContent = "Rule assist";
+      }
+
+      function showTyping() {
+        if (typingRow) return;
+        typingRow = document.createElement("div");
+        typingRow.className = "chat-row chat-bot";
+        typingRow.innerHTML = '<div class="chat-bubble"><span class="chat-typing"><span></span><span></span><span></span></span></div>';
+        chatLog.appendChild(typingRow);
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }
+
+      function hideTyping() {
+        if (!typingRow) return;
+        typingRow.remove();
+        typingRow = null;
       }
 
       appendChat("Hi, I am your NASIM AI assistant. I can solve quick questions now. For complex issues, I will route you to a representative.");
@@ -224,6 +328,7 @@
 
         appendChat(payload.message, "user");
         chatMessage.value = "";
+        showTyping();
 
         try {
           const response = await fetch("/api/support/contact/", {
@@ -236,13 +341,17 @@
           });
 
           if (!response.ok) {
+            hideTyping();
             appendChat("We could not save your request right now. Please try again in a minute.");
             return;
           }
 
           const data = await response.json();
+          hideTyping();
+          setChatSource(data.handled_by, data.escalated);
           appendChat(data.reply || "Thanks. Our support team will contact you shortly.");
         } catch (error) {
+          hideTyping();
           appendChat("Network issue detected. Please retry, or email support@nasim-airways.example");
         }
       });

@@ -46,6 +46,8 @@ class TripViewsTests(TestCase):
         response = self.client.get("/?from=MSP")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["ai_recommended_trip"].id, short_trip.id)
+        self.assertEqual(response.context["automation_summary"]["fastest_trip_id"], short_trip.id)
+        self.assertContains(response, "UI Automation Center")
 
     def test_trip_detail_renders_ai_panel(self):
         trip = self._create_trip(30, 100)
@@ -235,6 +237,32 @@ class TripViewsTests(TestCase):
         self.assertFalse(data["escalated"])
         self.assertIn("check-in", data["reply"].lower())
         self.assertEqual(SupportTicket.objects.count(), 0)
+
+    @patch("flights.views.urlrequest.urlopen")
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=True)
+    def test_support_contact_api_uses_openai_when_configured(self, mock_urlopen):
+        class MockResponse:
+            def __enter__(self_inner):
+                return self_inner
+
+            def __exit__(self_inner, exc_type, exc, tb):
+                return False
+
+            def read(self_inner):
+                return b'{"output_text":"Check-in usually opens 24 hours before departure."}'
+
+        mock_urlopen.return_value = MockResponse()
+
+        response = self.client.post(
+            "/api/support/contact/",
+            data='{"message":"When does check-in open?"}',
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["handled_by"], "openai")
+        self.assertFalse(data["escalated"])
+        self.assertIn("24 hours", data["reply"])
 
     def test_support_contact_api_escalates_complex_questions(self):
         response = self.client.post(

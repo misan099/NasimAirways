@@ -114,6 +114,78 @@ def _ai_insights(trip):
     }
 
 
+def _search_automation_summary(trips):
+    """Build compact automation insights for the search experience."""
+    if not trips:
+        return {
+            "visible_count": 0,
+            "in_air_count": 0,
+            "boarding_count": 0,
+            "delayed_count": 0,
+            "high_risk_count": 0,
+            "fastest_trip_id": None,
+            "fastest_trip_code": "",
+            "automation_message": "No flights are visible yet. Change your route filters to generate an operations plan.",
+        }
+
+    visible_count = len(trips)
+    in_air_count = 0
+    boarding_count = 0
+    delayed_count = 0
+    high_risk_count = 0
+    scored_trips = []
+
+    for trip in trips:
+        insight = _ai_insights(trip)
+        scored_trips.append((trip, insight))
+        if insight["status"] == "In Air":
+            in_air_count += 1
+        if insight["status"] == "Boarding":
+            boarding_count += 1
+        if trip.delay_minutes > 0:
+            delayed_count += 1
+        if insight["risk_level"] == "High":
+            high_risk_count += 1
+
+    fastest_trip = min(
+        trips,
+        key=lambda t: (
+            _duration_minutes(t),
+            t.depart_at,
+        ),
+    )
+    watch_trip, watch_ai = max(
+        scored_trips,
+        key=lambda item: (
+            item[1]["risk_score"],
+            item[0].delay_minutes,
+            -item[0].depart_at.timestamp(),
+        ),
+    )
+    automation_message = (
+        f"Automation is watching {visible_count} flights. "
+        f"Priority focus is {watch_trip.flight.flight_code} with {watch_ai['risk_level'].lower()} risk "
+        f"at {watch_ai['risk_score']}/100. Recommended action: {watch_ai['recommendation']}"
+    )
+
+    return {
+        "visible_count": visible_count,
+        "in_air_count": in_air_count,
+        "boarding_count": boarding_count,
+        "delayed_count": delayed_count,
+        "high_risk_count": high_risk_count,
+        "fastest_trip_id": fastest_trip.id,
+        "fastest_trip_code": fastest_trip.flight.flight_code,
+        "watch_trip_id": watch_trip.id,
+        "watch_trip_code": watch_trip.flight.flight_code,
+        "watch_risk_score": watch_ai["risk_score"],
+        "watch_risk_level": watch_ai["risk_level"],
+        "watch_status": watch_ai["status"],
+        "watch_recommendation": watch_ai["recommendation"],
+        "automation_message": automation_message,
+    }
+
+
 def _progress_percent(trip, now=None):
     """Estimate trip progress from schedule only."""
     if now is None:
@@ -291,6 +363,58 @@ def _generate_ai_message(trip):
     return text.strip(), "openai"
 
 
+def _generate_support_reply(message, name="", email="", source_page=""):
+    """Use OpenAI for concise guest care replies when configured."""
+    triage = _triage_support_message(message)
+    if triage.get("escalate"):
+        return triage
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        return triage
+
+    prompt = (
+        "You are a warm airline guest-care assistant for NASIM Airways. "
+        "Answer in 2 short sentences max, stay practical, and do not invent booking-specific facts. "
+        "If the request needs an agent for edge cases like legal, fraud, medical, passport, or group booking, say AGENT_REQUIRED. "
+        f"Guest name: {name or 'Guest'}. "
+        f"Guest email present: {'yes' if email else 'no'}. "
+        f"Source page: {source_page or '/'}. "
+        f"Fallback guidance: {triage.get('reply', '')} "
+        f"Guest message: {message}"
+    )
+    payload = {
+        "model": os.environ.get("OPENAI_MODEL", "gpt-4.1-mini"),
+        "input": prompt,
+    }
+    req = urlrequest.Request(
+        "https://api.openai.com/v1/responses",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urlrequest.urlopen(req, timeout=8) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+    except (error.URLError, error.HTTPError, TimeoutError, ValueError):
+        return triage
+
+    text = (body.get("output_text") or "").strip()
+    if not text:
+        return triage
+    if "AGENT_REQUIRED" in text.upper():
+        return {"handled_by": "openai", "escalate": True}
+
+    return {
+        "handled_by": "openai",
+        "escalate": False,
+        "reply": text,
+    }
+
+
 def search_trips(request):
     airports = Airport.objects.all().order_by("code")
 
@@ -324,6 +448,7 @@ def search_trips(request):
                 t.depart_at,
             ),
         )
+    automation_summary = _search_automation_summary(trips)
 
     return render(
         request,
@@ -334,6 +459,7 @@ def search_trips(request):
             "to_code": to_code,
             "trips": trips,
             "ai_recommended_trip": ai_recommended_trip,
+            "automation_summary": automation_summary,
             "default_hub_code": DEFAULT_HUB_CODE,
         },
     )
@@ -727,12 +853,12 @@ def support_contact_api(request):
     if not message:
         return JsonResponse({"error": "Please enter your message."}, status=400)
 
-    triage = _triage_support_message(message)
+    triage = _generate_support_reply(message, name=name, email=email, source_page=source_page)
     if not triage.get("escalate"):
         return JsonResponse(
             {
                 "ok": True,
-                "handled_by": "ai",
+                "handled_by": triage.get("handled_by", "ai"),
                 "escalated": False,
                 "reply": triage["reply"],
             }
@@ -745,7 +871,7 @@ def support_contact_api(request):
             return JsonResponse(
                 {
                     "ok": True,
-                    "handled_by": "ai",
+                    "handled_by": triage.get("handled_by", "ai"),
                     "escalated": False,
                     "reply": (
                         "This needs a representative. Please share a valid email so "
@@ -758,7 +884,7 @@ def support_contact_api(request):
         return JsonResponse(
             {
                 "ok": True,
-                "handled_by": "ai",
+                "handled_by": triage.get("handled_by", "ai"),
                 "escalated": False,
                 "reply": (
                     "This looks like a complex request. Please add your email and "
@@ -777,7 +903,7 @@ def support_contact_api(request):
     return JsonResponse(
         {
             "ok": True,
-            "handled_by": "ai",
+            "handled_by": triage.get("handled_by", "ai"),
             "escalated": True,
             "reply": (
                 "Thanks. A representative will get back to you soon. "

@@ -113,14 +113,48 @@
     </div>
   </section>
 
-  {% if ai_recommended_trip %}
-  <section class="panel recommendation">
-    <strong>Recommended option:</strong>
-    <a href="/trip/{{ ai_recommended_trip.id }}/">{{ ai_recommended_trip.flight.flight_code }}</a>
-    {{ ai_recommended_trip.flight.route.from_airport.name }} to {{ ai_recommended_trip.flight.route.to_airport.name }}
-    <span class="ai-ribbon">Best duration</span>
+  <section class="panel automation-panel">
+    <div class="automation-copy">
+      <p class="automation-kicker">UI Automation Center</p>
+      <h2>Search results now feel like a live dispatch board.</h2>
+      <p id="automationMessage">{{ automation_summary.automation_message }}</p>
+      {% if ai_recommended_trip %}
+      <div class="automation-link-row">
+        <strong>Fastest option:</strong>
+        <a href="/trip/{{ ai_recommended_trip.id }}/">{{ ai_recommended_trip.flight.flight_code }}</a>
+        <span class="ai-ribbon">Best duration</span>
+      </div>
+      {% endif %}
+    </div>
+    <div class="automation-grid">
+      <article class="automation-card">
+        <span class="automation-label">Flights visible</span>
+        <strong id="automationVisible">{{ automation_summary.visible_count }}</strong>
+      </article>
+      <article class="automation-card">
+        <span class="automation-label">High-risk watch</span>
+        <strong id="automationHighRisk">{{ automation_summary.high_risk_count }}</strong>
+      </article>
+      <article class="automation-card">
+        <span class="automation-label">Delay alerts</span>
+        <strong id="automationDelayed">{{ automation_summary.delayed_count }}</strong>
+      </article>
+      <article class="automation-card spotlight">
+        <span class="automation-label">Primary watch flight</span>
+        {% if automation_summary.watch_trip_id %}
+        <strong>
+          <a id="automationWatchLink" href="/trip/{{ automation_summary.watch_trip_id }}/">{{ automation_summary.watch_trip_code }}</a>
+        </strong>
+        <p id="automationWatchStatus">{{ automation_summary.watch_status }} • {{ automation_summary.watch_risk_level }} risk • {{ automation_summary.watch_risk_score }}/100</p>
+        <p id="automationWatchRecommendation">{{ automation_summary.watch_recommendation }}</p>
+        {% else %}
+        <strong>No active watch</strong>
+        <p id="automationWatchStatus">Adjust your filters to populate the board.</p>
+        <p id="automationWatchRecommendation">Automation suggestions will appear here.</p>
+        {% endif %}
+      </article>
+    </div>
   </section>
-  {% endif %}
 
   <section class="panel">
     <h2>Available Flights</h2>
@@ -444,6 +478,113 @@
     padding: 0.22rem 0.58rem;
   }
 
+  .automation-panel {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 1rem;
+    overflow: hidden;
+    position: relative;
+    background:
+      radial-gradient(500px 260px at 0% 0%, rgba(125, 67, 173, 0.14), transparent 62%),
+      radial-gradient(420px 260px at 100% 100%, rgba(211, 162, 79, 0.14), transparent 60%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 242, 255, 0.94));
+  }
+
+  .automation-kicker {
+    margin: 0;
+    color: #7a52a3;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .automation-copy h2 {
+    margin: 0.38rem 0 0;
+    font-size: clamp(1.3rem, 2vw, 1.9rem);
+    color: #2d1841;
+  }
+
+  .automation-copy p {
+    color: #59496a;
+    line-height: 1.5;
+  }
+
+  .automation-link-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.42rem;
+    margin-top: 1rem;
+    color: #4c3b5e;
+  }
+
+  .automation-link-row a,
+  .spotlight a {
+    color: #5d2f84;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .automation-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+  }
+
+  .automation-card {
+    min-height: 120px;
+    border-radius: 16px;
+    border: 1px solid rgba(120, 78, 164, 0.16);
+    background: rgba(255, 255, 255, 0.84);
+    padding: 0.9rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    animation: automationFloat 8s ease-in-out infinite;
+  }
+
+  .automation-card:nth-child(2) { animation-delay: 0.8s; }
+  .automation-card:nth-child(3) { animation-delay: 1.6s; }
+  .automation-card:nth-child(4) { animation-delay: 2.4s; }
+
+  .automation-label {
+    display: block;
+    color: #7a6a8a;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .automation-card strong {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 1.9rem;
+    color: #2f1b44;
+  }
+
+  .automation-card p {
+    margin: 0.4rem 0 0;
+    color: #5f4c70;
+    font-size: 0.88rem;
+    line-height: 1.42;
+  }
+
+  .spotlight {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, rgba(87, 36, 122, 0.94), rgba(125, 67, 173, 0.9));
+    color: #fff;
+  }
+
+  .spotlight .automation-label,
+  .spotlight p,
+  .spotlight a {
+    color: #f6ebff;
+  }
+
+  .spotlight strong {
+    font-size: 1.55rem;
+    color: #fff;
+  }
+
   .trip-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -525,8 +666,13 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
+  @keyframes automationFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
   @media (max-width: 980px) {
-    .hero, .hero-stats, form, .trip-grid {
+    .hero, .hero-stats, form, .trip-grid, .automation-panel, .automation-grid {
       grid-template-columns: 1fr;
     }
 
@@ -551,6 +697,12 @@
   const statVisible = document.getElementById("statVisible");
   const statInAir = document.getElementById("statInAir");
   const statBoarding = document.getElementById("statBoarding");
+  const automationVisible = document.getElementById("automationVisible");
+  const automationHighRisk = document.getElementById("automationHighRisk");
+  const automationDelayed = document.getElementById("automationDelayed");
+  const automationMessage = document.getElementById("automationMessage");
+  const automationWatchStatus = document.getElementById("automationWatchStatus");
+  const automationWatchRecommendation = document.getElementById("automationWatchRecommendation");
 
   const map = L.map("networkMap", { zoomControl: true }).setView([20, 20], 2);
   L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
@@ -625,13 +777,45 @@
   function updateStats(flights) {
     let inAir = 0;
     let boarding = 0;
+    let delayed = 0;
     for (const f of flights) {
       if (f.status === "In Air") inAir += 1;
       if (f.status === "Boarding") boarding += 1;
+      if (Number(f.delay_minutes || 0) > 0) delayed += 1;
     }
     statVisible.textContent = String(flights.length);
     statInAir.textContent = String(inAir);
     statBoarding.textContent = String(boarding);
+    automationVisible.textContent = String(flights.length);
+    automationDelayed.textContent = String(delayed);
+
+    const ranked = [...flights].sort((left, right) => {
+      const score = (item) =>
+        Number(item.delay_minutes || 0) * 2 +
+        (item.status === "Delayed" ? 35 : item.status === "Boarding" ? 18 : item.status === "In Air" ? 10 : 4);
+      return score(right) - score(left);
+    });
+    const highRiskCount = ranked.filter((item) => Number(item.delay_minutes || 0) >= 30 || item.status === "Delayed").length;
+    automationHighRisk.textContent = String(highRiskCount);
+
+    if (!ranked.length) {
+      automationMessage.textContent = "No flights are visible yet. Change your route filters to generate an operations plan.";
+      automationWatchStatus.textContent = "Adjust your filters to populate the board.";
+      automationWatchRecommendation.textContent = "Automation suggestions will appear here.";
+      return;
+    }
+
+    const watchFlight = ranked[0];
+    const watchRisk = Math.min(
+      100,
+      18 + Number(watchFlight.delay_minutes || 0) * 2 + (watchFlight.status === "Delayed" ? 35 : watchFlight.status === "Boarding" ? 18 : 10)
+    );
+    const watchLevel = watchRisk >= 55 ? "High" : watchRisk >= 35 ? "Medium" : "Low";
+    automationMessage.textContent = `Automation is watching ${flights.length} flights from ${getSelectedOrigin()}. Priority focus is ${watchFlight.flight_code} with ${watchLevel.toLowerCase()} risk at ${watchRisk}/100.`;
+    automationWatchStatus.textContent = `${watchFlight.status} • ${watchLevel} risk • ${watchRisk}/100`;
+    automationWatchRecommendation.textContent = watchFlight.delay_minutes > 0
+      ? `Recommend proactive delay notice for ${watchFlight.flight_code} and offer self-service rebooking options.`
+      : `Recommend priority reminders and gate-readiness automation for ${watchFlight.flight_code}.`;
   }
 
   async function refreshNetwork() {
